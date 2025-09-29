@@ -1,10 +1,18 @@
 cmake_minimum_required(VERSION 4.1)
 
-# how to I set variable from the command line?
+set(SAMPLES_BUILD_OPTIONS "" CACHE STRING "List of samples to build")
+
+if (NOT SAMPLES_BUILD_OPTIONS)
+    message (FATAL_ERROR "At least select one sample to build!")
+endif()
+
+foreach(sample IN LISTS SAMPLES_BUILD_OPTIONS)
+endforeach()
 
 project(
+    TinyD3D
     VERSION 1.0.0
     LANGUAGES C CXX
 )
 
-# how can I choose specific sample and add_subdirectory
+add_subdirectory(samples)
