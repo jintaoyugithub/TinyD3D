@@ -20,7 +20,21 @@ add_executable(
 target_include_directories(
     ${PROJECT_NAME}
     PUBLIC
-    ${CMAKE_SOURCE_DIR}/core/d3dapp
+    ${CMAKE_SOURCE_DIR}/thirdparty/directx-headers/include
+    ${CMAKE_SOURCE_DIR}/core/
+    ${CMAKE_SOURCE_DIR}/thirdparty/imgui
+    ${CMAKE_SOURCE_DIR}/thirdparty/glm
+)
+
+target_link_libraries(
+    ${PROJECT_NAME}
+    PUBLIC
+    imgui
+    glm
+    d3d12
+    d3dcompiler
+    dxgi
+    DirectX-Headers
 )
 
 # TODO: Group files for IDE

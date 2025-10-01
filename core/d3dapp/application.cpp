@@ -1,66 +1,50 @@
-#include "application.hpp"
+#include "elemwindow.hpp"
 
 namespace tinyd3d {
-// Function actually handle the window inputs and events
-LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+void Application::init(ApplicationInfoDesc& info)
 {
-    switch (uMsg)
-    {
-    case WM_DESTROY:
-        PostQuitMessage(0);
-        break;
+    // init all the members
+    m_appInfo = info;
+    m_adapter = info.adapter;
+    m_device = info.device;
+    m_queues = info.queues;
 
-    case WM_PAINT:
-        break;
-    
-    default:
-        break;
-    }
-    return DefWindowProc(hwnd, uMsg, wParam, lParam);
-}
+    // add a window element
+    auto elemWindow = std::make_shared<ElemWindow>(info.windowConfig);
+    auto elemImgui = std::make_shared<ElemWindow>();
 
-void Application::initWindow()
-{
-    //const wchar_t CLASS_NAME[] = L"Test";
-    LPCSTR CLASS_NAME = "Test";
+    addElement(elemWindow);
+    //addElement(elemImgui);
 
-    WNDCLASS wc = {};
+    m_mainWindow = elemWindow->getMainWindow();
 
-    wc.lpfnWndProc = WindowProc;
-    wc.hInstance = m_hInstance;
-    wc.lpszClassName = CLASS_NAME;
+    // create swapchain
+    ComPtr<IDXGISwapChain> swapChain;
+    DXGI_SWAP_CHAIN_DESC scDesc{};
+    scDesc.BufferCount = m_appInfo.frameCount;
+    scDesc.BufferDesc.Width = m_appInfo.windowConfig.windowSize.x;
+    scDesc.BufferDesc.Height = m_appInfo.windowConfig.windowSize.y;
+    scDesc.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    scDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+    scDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD; // ???
+    // should be created after the window is created
+    scDesc.OutputWindow = m_mainWindow; 
+    scDesc.SampleDesc.Count = 1; // ???
+    scDesc.Windowed = !m_appInfo.windowConfig.fullScreen;
 
-    RegisterClass(&wc);
-
-    // create the root window
-    WindowHandler rootHwnd = CreateWindowEx(
-        0,
-        CLASS_NAME,
-        "Title",
-        WS_OVERLAPPEDWINDOW,
-
-        // size and position
-        CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
-
-        NULL,         // Parent window    
-        NULL,         // Menu
-        m_hInstance,  // Instance handle
-        NULL          // Additional application data
+    // TODO: move this logic to dx12 backend
+    // like m_swapchain = tinyd3d::CreateSwapchain(...);
+    ComPtr<IDXGIFactory4> factory;
+    CreateDXGIFactory1(IID_PPV_ARGS(&factory));
+    auto hr = factory->CreateSwapChain(
+        //cgQueue.queue.Get(),
+        m_queues[0].queue.Get(),
+        &scDesc,
+        &swapChain
     );
 
-    if (rootHwnd == NULL) return;
-
-    m_windowHanlders.push_back(rootHwnd);
-
-    // TODO
-    int nCmdShow = 1;
-    ShowWindow(rootHwnd, nCmdShow);
-}
-
-void Application::init()
-{
-    initWindow();
-    //initImgui();
+    // project the swapchain to the version we want
+    swapChain.As(&m_swapchain);
 }
 
 void Application::run()
@@ -74,5 +58,7 @@ void Application::run()
 
 void Application::addElement(std::shared_ptr<IAppElement> elem)
 {
+    m_elements.push_back(elem);
+    elem->onAttach(this);
 }
 }
