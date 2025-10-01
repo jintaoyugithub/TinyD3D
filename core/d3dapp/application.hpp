@@ -8,6 +8,7 @@
 #include <common.hpp>
 #include <wrl.h>
 #include <dxgi1_6.h>
+#include <d3dcompiler.h>
 
 //#include <d3dx12.h>
 
@@ -57,6 +58,8 @@ struct ApplicationInfoDesc {
     // TODO: move the config to json
     D3D_FEATURE_LEVEL featureLevel{D3D_FEATURE_LEVEL_12_0};
     //std::vector<> supportFeatures;
+
+    uint16_t shaderCompileFlags{ 0 };
 };
 
 class Application {

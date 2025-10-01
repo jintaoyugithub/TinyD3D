@@ -1,24 +1,34 @@
 #include <directx/d3dx12.h>
-#include <d3dcompiler.h>
 #include "helloTriangle.hpp"
 
 // TODO: some repeatable logic should move to dx12 backend
 
 void ElemHelloTriangle::onAttach(tinyd3d::Application* app)
 {
-#ifdef _DEBUG
-	{
-		ComPtr<ID3D12Debug> dbgController;
-		if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&dbgController)))) {
-			dbgController->EnableDebugLayer();
-		}
-	}
 
-	// determine shader debug compile flags
-	m_compileFlags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
-#else
-	m_compileFlags = 0
-#endif
+	//tinyd3d::ApplicationInfoDesc appConfig = app->getAppInfoDesc();
+	// create cmd allocator
+	auto device = app->getDevice();
+
+	auto hr = device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_cmdAlloc));
+	ComPtr<ID3D12Device> devices;
+	m_cmdAlloc->GetDevice(IID_PPV_ARGS(&devices));
+
+	// create descriptor heaps
+	D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc{};
+	rtvHeapDesc.NumDescriptors = 2; //bug
+	rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+	rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+	app->getDevice()->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&m_rtvHeap));
+	m_rtvHeapSize = app->getDevice()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+
+	// create frame res, front buffer and back buffer in this case
+	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m_rtvHeap->GetCPUDescriptorHandleForHeapStart());
+	for (uint16_t idx = 0; idx < 2; ++idx) {
+		app->getSwapchain()->GetBuffer(idx, IID_PPV_ARGS(&m_renderTarget[idx]));
+		app->getDevice()->CreateRenderTargetView(m_renderTarget[idx].Get(), nullptr, rtvHandle);
+		rtvHandle.Offset(1, m_rtvHeapSize);
+	}
 
 	// or I get the device, app info here and pass to the functions
 	LoadPipeline(app);

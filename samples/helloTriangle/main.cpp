@@ -17,11 +17,26 @@ void test(tinyd3d::Application* app) {
 
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow)
 {
+
     tinyd3d::ApplicationInfoDesc appConfig{};
     appConfig.windowConfig.title = "Hello Triangle"; // doesn't matter if there is space in between in window class registeration?
     appConfig.windowConfig.nCmdShow = nCmdShow;
     appConfig.windowConfig.windowInstance = hInstance;
     appConfig.windowConfig.windowSize = tinyd3d::uvec2(800, 600);
+
+#ifdef _DEBUG
+	{
+		ComPtr<ID3D12Debug> dbgController;
+		if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&dbgController)))) {
+			dbgController->EnableDebugLayer();
+		}
+	}
+
+	// determine shader debug compile flags
+	appConfig.shaderCompileFlags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
+#else
+	m_compileFlags = 0
+#endif
 
     // TODO: have a backend context and get all the device, adapter, queues etc. from it
     // TODO: abstract to the d3d12 backend, like appConfig.device = tinyd3d::CreateDevice(vendorName ... )
@@ -53,12 +68,11 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
     appConfig.device->CreateCommandQueue(&cgQueue.desc, IID_PPV_ARGS(&cgQueue.queue));
     appConfig.queues.push_back(cgQueue);
 
-    //auto app = std::make_unique<tinyd3d::Application>();
-    auto app = tinyd3d::Application();
+    auto app = std::make_unique<tinyd3d::Application>();
     auto helloTriangle = std::make_shared<ElemHelloTriangle>();
 
-    app.init(appConfig);
-    app.addElement(helloTriangle);
+    app->init(appConfig);
+    app->addElement(helloTriangle);
 
     {
 	// create descriptor heaps
@@ -68,15 +82,15 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 	rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
 
     ComPtr<ID3D12DescriptorHeap> testHeap;
-	auto hr = app.getDevice()->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&testHeap));
+	auto hr = app->getDevice()->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&testHeap));
 	auto size = appConfig.device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 
     testHeap->GetCPUDescriptorHandleForHeapStart();
 
-    test(&app);
+    test(app.get());
     }
 
-    app.run();
+    app->run();
 
     return 0;
 }
