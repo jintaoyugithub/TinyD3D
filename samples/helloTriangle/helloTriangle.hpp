@@ -28,10 +28,8 @@ private:
     D3D12_VERTEX_BUFFER_VIEW m_vertexBufferView;
 
     // Pipeline obj
-    uint16_t m_rtvHeapSize;
     D3D12_VIEWPORT m_viewport;
     D3D12_RECT m_scissorRect;
-    ComPtr<ID3D12Resource> m_renderTarget[2]; //TODO: move framecount somewhere else
     ComPtr<ID3D12CommandQueue> m_cmdQueue;
     // cmd list type should be specified?
     ComPtr<ID3D12GraphicsCommandList> m_cmdList;

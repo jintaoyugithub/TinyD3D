@@ -1,5 +1,6 @@
 #pragma once
 
+#include <directx/d3dx12.h>
 #include <d3d12.h>
 #include <memory>
 #include <vector>
@@ -76,19 +77,34 @@ public:
 
     // Getters
     inline ApplicationInfoDesc getAppInfo() const { return m_appInfo; };
-    inline ComPtr<ID3D12Device> getDevice() const { return m_device; };
-    inline ComPtr<IDXGISwapChain3> getSwapchain() const { return m_swapchain; };
+    inline ID3D12Device* getDevice() const { return m_device.Get(); };
+    inline IDXGISwapChain3* getSwapchain() const { return m_swapchain.Get(); };
     inline QueueInfo getQueue(uint16_t idx) const { return m_queues[idx]; };
+    inline ID3D12Resource* getRenderTargets(uint16_t idx) const { return m_renderTargets[idx].Get(); };
 
     //inline WindowInstance getWindowInstance() const { return m_appInfoDesc.windowConfig.windowInstance; };
     inline WindowHandler getMainWindow() const { return m_mainWindow; };
     inline uvec2 getWindowSize() const { return m_appInfo.windowConfig.windowSize; };
 
 private:
+    void drawFrame(ID3D12CommandList* cmd);
+    void render2swapchain(ID3D12CommandList* cmd);
+    void presentFrame();
+
+    // TODO
+    void endFrame();
+
+private:
     ApplicationInfoDesc m_appInfo;
     WindowHandler m_mainWindow{ NULL };
 
     ComPtr<IDXGISwapChain3> m_swapchain;
+    ComPtr<ID3D12DescriptorHeap> m_rtvHeap;
+    std::vector<ComPtr<ID3D12Resource>> m_renderTargets;
+    uint16_t m_rtvDescriptorSize;
+
+    ComPtr<ID3D12CommandAllocator> m_cmdAlloc;
+
     ComPtr<ID3D12Device> m_device;
     ComPtr<IDXGIAdapter1> m_adapter;
     std::vector<std::shared_ptr<IAppElement>> m_elements;

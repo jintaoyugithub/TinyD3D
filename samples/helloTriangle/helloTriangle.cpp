@@ -6,25 +6,9 @@
 
 void ElemHelloTriangle::onAttach(tinyd3d::Application* app)
 {
-	auto device = app->getDevice().Get();
-	auto swapchain = app->getSwapchain().Get();
+	auto device = app->getDevice();
+	auto swapchain = app->getSwapchain();
 	m_cmdQueue = app->getQueue(0).queue;
-
-	// create descriptor heaps
-	D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc{};
-	rtvHeapDesc.NumDescriptors = 2; //bug
-	rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-	rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-	device->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&m_rtvHeap));
-	m_rtvHeapSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-
-	// create frame res, front buffer and back buffer in this case
-	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m_rtvHeap->GetCPUDescriptorHandleForHeapStart());
-	for (uint16_t idx = 0; idx < 2; ++idx) {
-		swapchain->GetBuffer(idx, IID_PPV_ARGS(&m_renderTarget[idx]));
-		device->CreateRenderTargetView(m_renderTarget[idx].Get(), nullptr, rtvHandle);
-		rtvHandle.Offset(1, m_rtvHeapSize);
-	}
 
 	// or I get the device, app info here and pass to the functions
 	LoadPipeline(device, swapchain);
@@ -44,6 +28,7 @@ void ElemHelloTriangle::preRender()
 void ElemHelloTriangle::onRender(ID3D12CommandList* cmd)
 {
 	// populate cmd list, include reset the allocator, cmd list and record the new cmds
+
 }
 
 void ElemHelloTriangle::onUIRender()
@@ -56,22 +41,7 @@ void ElemHelloTriangle::onResize()
 
 void ElemHelloTriangle::LoadPipeline(ID3D12Device* device, IDXGISwapChain3* swapchain)
 {
-	// create descriptor heaps
-	D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc{};
-	rtvHeapDesc.NumDescriptors = 2; //bug
-	rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-	rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-	device->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&m_rtvHeap));
-	m_rtvHeapSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-
-	// create frame res, front buffer and back buffer in this case
-	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m_rtvHeap->GetCPUDescriptorHandleForHeapStart());
-	for (uint16_t idx = 0; idx < 2; ++idx) {
-		swapchain->GetBuffer(idx, IID_PPV_ARGS(&m_renderTarget[idx]));
-		device->CreateRenderTargetView(m_renderTarget[idx].Get(), nullptr, rtvHandle);
-		rtvHandle.Offset(1, m_rtvHeapSize);
-	}
-
+	// should be here? or in the application?
 	// create cmd allocator
 	device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_cmdAlloc));
 
