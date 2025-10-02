@@ -54,11 +54,20 @@ void Application::run()
         TranslateMessage(&msg);
         DispatchMessage(&msg);
     }
+
+    close();
 }
 
 void Application::addElement(std::shared_ptr<IAppElement> elem)
 {
     m_elements.push_back(elem);
     elem->onAttach(this);
+}
+
+void Application::close()
+{
+    // bug here
+    // if don't clear, elements size will be insance
+    m_elements.clear();
 }
 }

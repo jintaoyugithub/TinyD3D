@@ -18,8 +18,8 @@ public:
     void onResize() override;
 
 private:
-    void LoadPipeline(tinyd3d::Application* app);
-    void LoadAssets(tinyd3d::Application* app);
+    void LoadPipeline(ID3D12Device* device, IDXGISwapChain3* swapchain);
+    void LoadAssets(ID3D12Device* device);
 
 private:
     // Resources

@@ -8,13 +8,6 @@
 #include <memory>
 #include <iostream>
 
-void test(tinyd3d::Application* app) {
-    ComPtr<ID3D12CommandAllocator> alloc;
-    app->getDevice()->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&alloc));
-	ComPtr<ID3D12Device> devices;
-	alloc->GetDevice(IID_PPV_ARGS(&devices));
-}
-
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow)
 {
 
@@ -73,22 +66,6 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 
     app->init(appConfig);
     app->addElement(helloTriangle);
-
-    {
-	// create descriptor heaps
-	D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc{};
-	rtvHeapDesc.NumDescriptors = 2; //bug
-	rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-	rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-
-    ComPtr<ID3D12DescriptorHeap> testHeap;
-	auto hr = app->getDevice()->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&testHeap));
-	auto size = appConfig.device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-
-    testHeap->GetCPUDescriptorHandleForHeapStart();
-
-    test(app.get());
-    }
 
     app->run();
 

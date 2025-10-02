@@ -5,14 +5,8 @@
 
 void ElemHelloTriangle::onAttach(tinyd3d::Application* app)
 {
-
-	//tinyd3d::ApplicationInfoDesc appConfig = app->getAppInfoDesc();
-	// create cmd allocator
-	auto device = app->getDevice();
-
-	auto hr = device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_cmdAlloc));
-	ComPtr<ID3D12Device> devices;
-	m_cmdAlloc->GetDevice(IID_PPV_ARGS(&devices));
+	auto device = app->getDevice().Get();
+	auto swapchain = app->getSwapchain().Get();
 
 	// create descriptor heaps
 	D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc{};
@@ -31,7 +25,7 @@ void ElemHelloTriangle::onAttach(tinyd3d::Application* app)
 	}
 
 	// or I get the device, app info here and pass to the functions
-	LoadPipeline(app);
+	LoadPipeline(device, swapchain);
 	//LoadAssets(app);
 }
 
@@ -58,34 +52,30 @@ void ElemHelloTriangle::onResize()
 {
 }
 
-void ElemHelloTriangle::LoadPipeline(tinyd3d::Application* app)
+void ElemHelloTriangle::LoadPipeline(ID3D12Device* device, IDXGISwapChain3* swapchain)
 {
-	//tinyd3d::ApplicationInfoDesc appConfig = app->getAppInfoDesc();
-	// create cmd allocator
-	auto device = app->getDevice();
-
-	auto hr = device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_cmdAlloc));
-	ComPtr<ID3D12Device> devices;
-	m_cmdAlloc->GetDevice(IID_PPV_ARGS(&devices));
-
 	// create descriptor heaps
 	D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc{};
 	rtvHeapDesc.NumDescriptors = 2; //bug
 	rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
 	rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-	app->getDevice()->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&m_rtvHeap));
-	m_rtvHeapSize = app->getDevice()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+	device->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&m_rtvHeap));
+	m_rtvHeapSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 
 	// create frame res, front buffer and back buffer in this case
 	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m_rtvHeap->GetCPUDescriptorHandleForHeapStart());
 	for (uint16_t idx = 0; idx < 2; ++idx) {
-		app->getSwapchain()->GetBuffer(idx, IID_PPV_ARGS(&m_renderTarget[idx]));
-		app->getDevice()->CreateRenderTargetView(m_renderTarget[idx].Get(), nullptr, rtvHandle);
+		swapchain->GetBuffer(idx, IID_PPV_ARGS(&m_renderTarget[idx]));
+		device->CreateRenderTargetView(m_renderTarget[idx].Get(), nullptr, rtvHandle);
 		rtvHandle.Offset(1, m_rtvHeapSize);
 	}
+
+	// create cmd allocator
+	device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_cmdAlloc));
+
 }
 
-void ElemHelloTriangle::LoadAssets(tinyd3d::Application* app)
+void ElemHelloTriangle::LoadAssets(ID3D12Device* device)
 {
 	{
 		// create root signature
@@ -101,7 +91,7 @@ void ElemHelloTriangle::LoadAssets(tinyd3d::Application* app)
 		/// because root signature is part of the shader, need to be compiled
 		D3D12SerializeRootSignature(&rootSigDesc, D3D_ROOT_SIGNATURE_VERSION_1, &rootSignature, &error);
 
-		app->getDevice()->CreateRootSignature(0, rootSignature.Get(), rootSignature->GetBufferSize(), IID_PPV_ARGS(&m_rootSig));
+		device->CreateRootSignature(0, rootSignature.Get(), rootSignature->GetBufferSize(), IID_PPV_ARGS(&m_rootSig));
 	}
 
 	// create pipeline state, including shader compiling
@@ -134,7 +124,7 @@ void ElemHelloTriangle::LoadAssets(tinyd3d::Application* app)
 		psoDesc.VS = { m_vs->GetBufferPointer(), m_vs->GetBufferSize() };
 		psoDesc.PS = { m_ps->GetBufferPointer(), m_ps->GetBufferSize() };
 
-		app->getDevice()->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&m_pso));
+		device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&m_pso));
 	}
 
 	// create cmd list
