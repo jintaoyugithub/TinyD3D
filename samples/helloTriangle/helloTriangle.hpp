@@ -32,7 +32,8 @@ private:
     D3D12_RECT m_scissorRect;
     ComPtr<ID3D12Resource> m_renderTarget[2]; //TODO: move framecount somewhere else
     ComPtr<ID3D12CommandQueue> m_cmdQueue;
-    ComPtr<ID3D12CommandList> m_cmdList;
+    // cmd list type should be specified?
+    ComPtr<ID3D12GraphicsCommandList> m_cmdList;
     ComPtr<ID3D12CommandAllocator> m_cmdAlloc;
     ComPtr<ID3D12RootSignature> m_rootSig;
     ComPtr<ID3D12PipelineState> m_pso;

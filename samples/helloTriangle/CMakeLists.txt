@@ -1,8 +1,10 @@
 project(D3DHelloTriangle)
 
-file(GLOB d3dapp_src
+file(GLOB framework
     ${CMAKE_SOURCE_DIR}/core/d3dapp/*.hpp
     ${CMAKE_SOURCE_DIR}/core/d3dapp/*.cpp
+    ${CMAKE_SOURCE_DIR}/core/utils/*.hpp
+    ${CMAKE_SOURCE_DIR}/core/utils/*.cpp
 )
 
 file(GLOB helloTriangle_src
@@ -19,7 +21,7 @@ set_source_files_properties(${helloTriangle_shaders} PROPERTIES HEADER_FILE_ONLY
 add_executable(
     ${PROJECT_NAME}
     WIN32
-    ${d3dapp_src}
+    ${framework}
     ${helloTriangle_src}
     ${helloTriangle_shaders}
 )
@@ -42,6 +44,12 @@ target_link_libraries(
     d3dcompiler
     dxgi
     DirectX-Headers
+)
+
+target_compile_features(
+    ${PROJECT_NAME} 
+    PRIVATE 
+    cxx_std_17
 )
 
 # TODO: Group files for IDE

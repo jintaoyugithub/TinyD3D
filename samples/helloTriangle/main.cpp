@@ -64,6 +64,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
     auto app = std::make_unique<tinyd3d::Application>();
     auto helloTriangle = std::make_shared<ElemHelloTriangle>();
 
+    // TODO: read config from the json file
     app->init(appConfig);
     app->addElement(helloTriangle);
 

@@ -1,5 +1,6 @@
 #include <directx/d3dx12.h>
 #include "helloTriangle.hpp"
+#include <utils/helper.hpp>
 
 // TODO: some repeatable logic should move to dx12 backend
 
@@ -26,7 +27,7 @@ void ElemHelloTriangle::onAttach(tinyd3d::Application* app)
 
 	// or I get the device, app info here and pass to the functions
 	LoadPipeline(device, swapchain);
-	//LoadAssets(app);
+	LoadAssets(device);
 }
 
 void ElemHelloTriangle::onDetach()
@@ -96,8 +97,13 @@ void ElemHelloTriangle::LoadAssets(ID3D12Device* device)
 
 	// create pipeline state, including shader compiling
 	{
-		D3DCompileFromFile(L"./shaders/transform.hlsl", nullptr, nullptr, "VSMain", "vs_5_0", m_compileFlags, 0, &m_vs, nullptr);
-		D3DCompileFromFile(L"./shaders/transform.hlsl", nullptr, nullptr, "PSMain", "vs_5_0", m_compileFlags, 0, &m_ps, nullptr);
+		// TODO: write getpath func in helper, add add_custom_command in cmake
+		// copy the shader files to the work dir during the build time
+		// then compile the shader there
+		std::filesystem::path src = __FILE__;
+		auto shaderPath = src.parent_path() / "shaders/transform.hlsl";
+		auto hr = D3DCompileFromFile(shaderPath.c_str(), nullptr, nullptr, "VSMain", "vs_5_0", m_compileFlags, 0, &m_vs, nullptr);
+		hr = D3DCompileFromFile(shaderPath.c_str(), nullptr, nullptr, "PSMain", "ps_5_0", m_compileFlags, 0, &m_ps, nullptr);
 
 		D3D12_INPUT_ELEMENT_DESC inputElementDescs[] =
 		{
@@ -116,7 +122,7 @@ void ElemHelloTriangle::LoadAssets(ID3D12Device* device)
 		psoDesc.NumRenderTargets = 1; // why 1?
 		psoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
 		psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-		/// what's these?
+		/// what are these?
 		/// multi sample anti aliasing
 		psoDesc.SampleMask = UINT_MAX; // control which sample will be written to the RT
 		psoDesc.SampleDesc.Count = 1; // msaa level
@@ -128,6 +134,27 @@ void ElemHelloTriangle::LoadAssets(ID3D12Device* device)
 	}
 
 	// create cmd list
+	device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, m_cmdAlloc.Get(), m_pso.Get(), IID_PPV_ARGS(&m_cmdList));
+	m_cmdList->Close();
 
-	// create sync objs
+	// create vertex buffer
+	{
+		// vertices data
+
+		// vertex commited res
+
+		// copy data to vertex buffer since we don't need to read 
+		// this triangles data from cpu by using Map() and memcpy()
+
+		// so I need two, one default, one upload
+		// write data to upload, and then copy to the default
+		// which will be used in the gpu
+
+		// init vertex buffer view
+	}
+
+	// create sync objs to wait all res are uploaded to the gpu
+	{
+
+	}
 }
