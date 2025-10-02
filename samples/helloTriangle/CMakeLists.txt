@@ -10,11 +10,18 @@ file(GLOB helloTriangle_src
     ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp
 )
 
+file(GLOB helloTriangle_shaders
+    ${CMAKE_CURRENT_SOURCE_DIR}/shaders/*.hlsl
+)
+
+set_source_files_properties(${helloTriangle_shaders} PROPERTIES HEADER_FILE_ONLY ON)
+
 add_executable(
     ${PROJECT_NAME}
     WIN32
     ${d3dapp_src}
     ${helloTriangle_src}
+    ${helloTriangle_shaders}
 )
 
 target_include_directories(
