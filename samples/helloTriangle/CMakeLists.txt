@@ -44,6 +44,7 @@ target_link_libraries(
     d3dcompiler
     dxgi
     DirectX-Headers
+    DirectX-Guids
 )
 
 target_compile_features(

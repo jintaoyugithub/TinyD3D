@@ -1,6 +1,6 @@
 #include <directx/d3dx12.h>
 #include "helloTriangle.hpp"
-#include <utils/helper.hpp>
+#include <filesystem>
 
 // TODO: some repeatable logic should move to dx12 backend
 
@@ -8,20 +8,21 @@ void ElemHelloTriangle::onAttach(tinyd3d::Application* app)
 {
 	auto device = app->getDevice().Get();
 	auto swapchain = app->getSwapchain().Get();
+	m_cmdQueue = app->getQueue(0).queue;
 
 	// create descriptor heaps
 	D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc{};
 	rtvHeapDesc.NumDescriptors = 2; //bug
 	rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
 	rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-	app->getDevice()->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&m_rtvHeap));
-	m_rtvHeapSize = app->getDevice()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+	device->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&m_rtvHeap));
+	m_rtvHeapSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 
 	// create frame res, front buffer and back buffer in this case
 	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m_rtvHeap->GetCPUDescriptorHandleForHeapStart());
 	for (uint16_t idx = 0; idx < 2; ++idx) {
-		app->getSwapchain()->GetBuffer(idx, IID_PPV_ARGS(&m_renderTarget[idx]));
-		app->getDevice()->CreateRenderTargetView(m_renderTarget[idx].Get(), nullptr, rtvHandle);
+		swapchain->GetBuffer(idx, IID_PPV_ARGS(&m_renderTarget[idx]));
+		device->CreateRenderTargetView(m_renderTarget[idx].Get(), nullptr, rtvHandle);
 		rtvHandle.Offset(1, m_rtvHeapSize);
 	}
 
@@ -140,21 +141,105 @@ void ElemHelloTriangle::LoadAssets(ID3D12Device* device)
 	// create vertex buffer
 	{
 		// vertices data
+		tinyd3d::Vertex triangle[] = {
+			// position (clip space) and color
+			{tinyd3d::vec3(-.5f, -.5f, .0f), tinyd3d::vec4(1.0f, 0.0f, 0.0f, 1.0f)},
+			{tinyd3d::vec3(.5f, -.5f, .0f), tinyd3d::vec4(0.0f, 1.0f, 0.0f, 1.0f)},
+			{tinyd3d::vec3(.0f, .5f, .0f), tinyd3d::vec4(0.0f, 0.0f, 1.0f, 1.0f)},
+		};
 
-		// vertex commited res
+		// so I need two heap res, one default, one upload
+		// write data to upload, and then copy to the default
+		// which will be used in the gpu
+		CD3DX12_HEAP_PROPERTIES heapDefault(D3D12_HEAP_TYPE_DEFAULT);
+		CD3DX12_HEAP_PROPERTIES heapUpload(D3D12_HEAP_TYPE_UPLOAD);
+
+		// create two temp resource to store the data
+		ComPtr<ID3D12Resource> gpuVertexRes;
+
+		auto bufferSize = sizeof(triangle);
+
+		// heap used for gpu
+		device->CreateCommittedResource(
+			&heapDefault,
+			D3D12_HEAP_FLAG_NONE,
+			&CD3DX12_RESOURCE_DESC::Buffer(bufferSize),
+			D3D12_RESOURCE_STATE_COMMON,
+			nullptr,
+			IID_PPV_ARGS(&gpuVertexRes)
+		);
+
+		// heap used for cpu
+		device->CreateCommittedResource(
+			&heapUpload,
+			D3D12_HEAP_FLAG_NONE,
+			&CD3DX12_RESOURCE_DESC::Buffer(bufferSize),
+			D3D12_RESOURCE_STATE_GENERIC_READ,
+			nullptr,
+			IID_PPV_ARGS(&m_vertexBuffer)
+		);
+
 
 		// copy data to vertex buffer since we don't need to read 
 		// this triangles data from cpu by using Map() and memcpy()
+		D3D12_SUBRESOURCE_DATA subResData{};
+		// fill upload heap with vertex data
+		subResData.pData = triangle;
+		// what are these two?
+		subResData.RowPitch = bufferSize; // the size in onw row of your data
+		subResData.SlicePitch = subResData.RowPitch; // the size in buytes of one slice, for 3d texture
 
-		// so I need two, one default, one upload
-		// write data to upload, and then copy to the default
-		// which will be used in the gpu
+		/// the existance of m_vertexBuffer is to let cpu to write the data to this buffer
+		/// then copy the data from m_vertexBuffer to actual gpu memory
+		/// we need two different heap that's because default can only access by GPU
+		/// upload can be access by CPU
+		
+		// copy the data to the gpu
+		UpdateSubresources(
+			m_cmdList.Get(),
+			gpuVertexRes.Get(),
+			m_vertexBuffer.Get(),
+			0,
+			0,
+			1,
+			&subResData
+		);
+
+		/// updatesubresouces vs. map() and memcpy()?
+		/// map() + memcpy() doesn't require intermediate staging (the cpuVertexRes)
+		/// can directly copy the data to the upload heap
+		/// useful for small or dynamic data
 
 		// init vertex buffer view
+		m_vertexBufferView.BufferLocation = m_vertexBuffer->GetGPUVirtualAddress();
+		m_vertexBufferView.StrideInBytes = sizeof(tinyd3d::Vertex);
+		m_vertexBufferView.SizeInBytes = bufferSize;
 	}
 
 	// create sync objs to wait all res are uploaded to the gpu
 	{
+		device->CreateFence(m_fenceValue, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_fence));
 
+		// create the fence event
+		m_fenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+
+		if (m_fenceEvent == NULL) {
+			throw std::runtime_error("Fail to create fence event handler");
+		}
+
+		waitForPrevFrame();
+	}
+}
+
+void ElemHelloTriangle::waitForPrevFrame()
+{
+	// store the current fence value
+	// to avoid multi sync happen at the same time
+	auto fence = ++m_fenceValue;
+	m_cmdQueue->Signal(m_fence.Get(), fence);
+	
+	if (m_fence->GetCompletedValue() < fence) {
+		m_fence->SetEventOnCompletion(fence, m_fenceEvent); // push the completion of the event with m_fenceValue
+		WaitForSingleObject(m_fenceEvent, INFINITE);
 	}
 }

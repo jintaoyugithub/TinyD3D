@@ -78,10 +78,11 @@ public:
     inline ApplicationInfoDesc getAppInfo() const { return m_appInfo; };
     inline ComPtr<ID3D12Device> getDevice() const { return m_device; };
     inline ComPtr<IDXGISwapChain3> getSwapchain() const { return m_swapchain; };
+    inline QueueInfo getQueue(uint16_t idx) const { return m_queues[idx]; };
 
     //inline WindowInstance getWindowInstance() const { return m_appInfoDesc.windowConfig.windowInstance; };
     inline WindowHandler getMainWindow() const { return m_mainWindow; };
-    uvec2 getWindowSize() const { return m_appInfo.windowConfig.windowSize; };
+    inline uvec2 getWindowSize() const { return m_appInfo.windowConfig.windowSize; };
 
 private:
     ApplicationInfoDesc m_appInfo;

@@ -20,6 +20,7 @@ public:
 private:
     void LoadPipeline(ID3D12Device* device, IDXGISwapChain3* swapchain);
     void LoadAssets(ID3D12Device* device);
+    void waitForPrevFrame();
 
 private:
     // Resources
@@ -42,7 +43,7 @@ private:
     // Sync objs
     uint16_t m_frameIndex;
     ComPtr<ID3D12Fence> m_fence;
-    uint64_t m_fenceValue;
+    uint64_t m_fenceValue{ 0 };
     HANDLE m_fenceEvent; // ???
 
     // Shaders
