@@ -102,6 +102,7 @@ private:
     ComPtr<ID3D12DescriptorHeap> m_rtvHeap;
     std::vector<ComPtr<ID3D12Resource>> m_renderTargets;
     uint16_t m_rtvDescriptorSize;
+    uint16_t m_curFrameIdx;
 
     ComPtr<ID3D12CommandAllocator> m_cmdAlloc;
 

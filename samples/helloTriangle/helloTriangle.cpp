@@ -166,7 +166,7 @@ void ElemHelloTriangle::LoadAssets(ID3D12Device* device)
 		
 		// copy the data to the gpu
 		UpdateSubresources(
-			m_cmdList.Get(),
+			m_cmdList.Get(), // use a temp cmd list?
 			gpuVertexRes.Get(),
 			m_vertexBuffer.Get(),
 			0,
@@ -187,18 +187,18 @@ void ElemHelloTriangle::LoadAssets(ID3D12Device* device)
 	}
 
 	// create sync objs to wait all res are uploaded to the gpu
-	{
-		device->CreateFence(m_fenceValue, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_fence));
+	//{
+	//	device->CreateFence(m_fenceValue, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_fence));
 
-		// create the fence event
-		m_fenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+	//	// create the fence event
+	//	m_fenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
 
-		if (m_fenceEvent == NULL) {
-			throw std::runtime_error("Fail to create fence event handler");
-		}
+	//	if (m_fenceEvent == NULL) {
+	//		throw std::runtime_error("Fail to create fence event handler");
+	//	}
 
-		waitForPrevFrame();
-	}
+	//	waitForPrevFrame();
+	//}
 }
 
 void ElemHelloTriangle::waitForPrevFrame()

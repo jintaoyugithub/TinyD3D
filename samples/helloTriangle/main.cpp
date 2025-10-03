@@ -66,7 +66,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 
     // TODO: read config from the json file
     app->init(appConfig);
-    app->addElement(helloTriangle);
+    //app->addElement(helloTriangle);
 
     app->run();
 

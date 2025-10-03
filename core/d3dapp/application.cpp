@@ -15,7 +15,7 @@ void Application::init(ApplicationInfoDesc& info)
     m_device->CreateCommandAllocator(m_queues[0].desc.Type, IID_PPV_ARGS(&m_cmdAlloc));
 
     // add a window element
-    auto elemWindow = std::make_shared<ElemWindow>(info.windowConfig);
+    auto elemWindow = std::make_shared<ElemWindow>(info.windowConfig); // this will cause at the end of this func, elemWindow won't exist anymore
     //auto elemImgui = std::make_shared<ElemWindow>();
 
     addElement(elemWindow);
@@ -24,31 +24,33 @@ void Application::init(ApplicationInfoDesc& info)
     m_mainWindow = elemWindow->getMainWindow();
 
     // create swapchain
-    ComPtr<IDXGISwapChain> swapChain;
-    DXGI_SWAP_CHAIN_DESC scDesc{};
-    scDesc.BufferCount = m_appInfo.frameCount;
-    scDesc.BufferDesc.Width = m_appInfo.windowConfig.windowSize.x;
-    scDesc.BufferDesc.Height = m_appInfo.windowConfig.windowSize.y;
-    scDesc.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-    scDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-    scDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD; // ???
-    // should be created after the window is created
-    scDesc.OutputWindow = m_mainWindow; 
-    scDesc.SampleDesc.Count = 1; // ???
-    scDesc.Windowed = !m_appInfo.windowConfig.fullScreen;
+    {
+		ComPtr<IDXGISwapChain> swapChain;
+		DXGI_SWAP_CHAIN_DESC scDesc{};
+		scDesc.BufferCount = m_appInfo.frameCount;
+		scDesc.BufferDesc.Width = m_appInfo.windowConfig.windowSize.x;
+		scDesc.BufferDesc.Height = m_appInfo.windowConfig.windowSize.y;
+		scDesc.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		scDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+		scDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD; // ???
+		// should be created after the window is created
+		scDesc.OutputWindow = m_mainWindow;
+		scDesc.SampleDesc.Count = 1; // ???
+		scDesc.Windowed = !m_appInfo.windowConfig.fullScreen;
 
-    // TODO: move this logic to dx12 backend
-    // like m_swapchain = tinyd3d::CreateSwapchain(...);
-    ComPtr<IDXGIFactory4> factory;
-    CreateDXGIFactory1(IID_PPV_ARGS(&factory));
-    factory->CreateSwapChain(
-        m_queues[0].queue.Get(),
-        &scDesc,
-        &swapChain
-    );
+		// TODO: move this logic to dx12 backend
+		// like m_swapchain = tinyd3d::CreateSwapchain(...);
+		ComPtr<IDXGIFactory4> factory;
+		CreateDXGIFactory1(IID_PPV_ARGS(&factory));
+		factory->CreateSwapChain(
+			m_queues[0].queue.Get(),
+			&scDesc,
+			&swapChain
+		);
 
-    // project the swapchain to the version we want
-    swapChain.As(&m_swapchain);
+		// project the swapchain to the version we want
+		swapChain.As(&m_swapchain);
+    }
 
     // move the render target and rtv handler here
     // as default render target for the swapchain present
@@ -69,7 +71,7 @@ void Application::init(ApplicationInfoDesc& info)
 
 		// create view for render target
 		for (uint16_t idx = 0; idx < info.frameCount; ++idx) {
-            m_swapchain->GetBuffer(idx, IID_PPV_ARGS(&m_renderTargets[idx]));
+            auto hr = m_swapchain->GetBuffer(idx, IID_PPV_ARGS(&m_renderTargets[idx]));
             m_device->CreateRenderTargetView(m_renderTargets[idx].Get(), nullptr, rtvHandle);
             rtvHandle.Offset(1, m_rtvDescriptorSize);
 		}
@@ -84,8 +86,14 @@ void Application::run()
         DispatchMessage(&msg);
 
         // render a frame
-        const float clearColor[] = { 1.0f, 1.0f, 0.0f, 1.0f };
-        CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m_rtvHeap->GetCPUDescriptorHandleForHeapStart(), 0, m_rtvDescriptorSize);
+        const float clearColor[] = { 0.2f, 0.3f, 0.6f, 1.0f };
+        m_curFrameIdx = m_swapchain->GetCurrentBackBufferIndex();
+        CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m_rtvHeap->GetCPUDescriptorHandleForHeapStart(), m_curFrameIdx, m_rtvDescriptorSize);
+
+        // TODO: auto cmd = device->createTempCmd();
+        // cmd->begin()
+        // ...
+        // cmd->stop()
 
         ComPtr<ID3D12GraphicsCommandList> tempCmd;
         m_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, m_cmdAlloc.Get(), nullptr, IID_PPV_ARGS(&tempCmd));
@@ -93,10 +101,19 @@ void Application::run()
         tempCmd->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
         tempCmd->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
 
+        // test
+        auto window = m_elements[0].get();
+        window->onRender(tempCmd.Get());
+
         tempCmd->Close();
 
+        // execute the cmd
+        // why a new cmd list *?
+        ID3D12CommandList* ppCmdLists[] = { tempCmd.Get() }; // cmds can be patched here
+        m_queues[0].queue->ExecuteCommandLists(_countof(ppCmdLists), ppCmdLists);
+
         // test
-        auto hr = m_swapchain->Present(1, 0);
+        m_swapchain->Present(1, 0);
 
         drawFrame(tempCmd.Get());
         // probably will need rtv to perform render 2 target
@@ -131,8 +148,10 @@ void Application::presentFrame()
 
 void Application::close()
 {
-    // bug here
-    // if don't clear, elements size will be insance
     m_elements.clear();
+
+    // TODO: flush the cmd and wait the gpu to finish
+    // otherwise will cause swapchain deconstructor fail
+    // since you're still using the gpu
 }
 }
