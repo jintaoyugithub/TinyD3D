@@ -28,7 +28,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 	// determine shader debug compile flags
 	appConfig.shaderCompileFlags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
 #else
-	m_compileFlags = 0
+    appConfig.shaderCompileFlags = 0;
 #endif
 
     // TODO: have a backend context and get all the device, adapter, queues etc. from it
