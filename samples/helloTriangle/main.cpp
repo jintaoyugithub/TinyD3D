@@ -54,19 +54,27 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
         }
     }
 
-    // TODO: appConfig.queus = tinyd3d::getQueuesInfo(...);
+    // TODO: appConfig.queus = tinyd3d::getQueuesInfo(deivce, ...);
+    // graphics queue
     tinyd3d::QueueInfo cgQueue;
     cgQueue.desc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
     cgQueue.desc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
     appConfig.device->CreateCommandQueue(&cgQueue.desc, IID_PPV_ARGS(&cgQueue.queue));
     appConfig.queues.push_back(cgQueue);
 
+    // copy queue
+    tinyd3d::QueueInfo cpQueue;
+    cpQueue.desc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
+    cpQueue.desc.Type = D3D12_COMMAND_LIST_TYPE_COPY;
+    appConfig.device->CreateCommandQueue(&cpQueue.desc, IID_PPV_ARGS(&cpQueue.queue));
+    appConfig.queues.push_back(cpQueue);
+
     auto app = std::make_unique<tinyd3d::Application>();
     auto helloTriangle = std::make_shared<ElemHelloTriangle>();
 
     // TODO: read config from the json file
     app->init(appConfig);
-    //app->addElement(helloTriangle);
+    app->addElement(helloTriangle);
 
     app->run();
 

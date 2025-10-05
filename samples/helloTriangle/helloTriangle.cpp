@@ -8,7 +8,7 @@ void ElemHelloTriangle::onAttach(tinyd3d::Application* app)
 {
 	auto device = app->getDevice();
 	auto swapchain = app->getSwapchain();
-	m_cmdQueue = app->getQueue(0).queue;
+	m_cpQueue = app->getQueue(1).queue;
 
 	// or I get the device, app info here and pass to the functions
 	LoadPipeline(device, swapchain);
@@ -23,12 +23,29 @@ void ElemHelloTriangle::onDetach()
 void ElemHelloTriangle::preRender()
 {
 	// necessary update for the next frame
+	// for example: dynamic data, particle data which need to be 
+	// updated every frame, can use upload heap
+
+	// create a member cmd list record the upload resources cmd
+	// and batch with the cmd here to execute
+
+	/// which one is better: temp cmd or persistance cmd list and resue every frame???
+	/// for dynamic data, you can use gpu visible upload heap, and map the region
+	/// so that the cpu can keep write data to it
+	/// and use cmdlist->copybufferregion to copy the data to gpu vram
+
 }
 
-void ElemHelloTriangle::onRender(ID3D12CommandList* cmd)
+void ElemHelloTriangle::onRender(ID3D12GraphicsCommandList* cmd)
 {
-	// populate cmd list, include reset the allocator, cmd list and record the new cmds
-
+	cmd->SetPipelineState(m_pso.Get());
+	cmd->SetGraphicsRootSignature(m_rootSig.Get());
+	// these two is a must
+	cmd->RSSetScissorRects(1, &m_scissorRect);
+	cmd->RSSetViewports(1, &m_viewport);
+	cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	cmd->IASetVertexBuffers(0, 1, &m_vertexBufferView);
+	cmd->DrawInstanced(3, 1, 0, 0);
 }
 
 void ElemHelloTriangle::onUIRender()
@@ -43,8 +60,15 @@ void ElemHelloTriangle::LoadPipeline(ID3D12Device* device, IDXGISwapChain3* swap
 {
 	// should be here? or in the application?
 	// create cmd allocator
-	device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_cmdAlloc));
+	device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_COPY, IID_PPV_ARGS(&m_cmdAlloc));
 
+	// viewport and scissor rect set up
+	DXGI_SWAP_CHAIN_DESC desc{};
+	swapchain->GetDesc(&desc);
+	m_viewport.Width = desc.BufferDesc.Width;
+	m_viewport.Height = desc.BufferDesc.Height;
+	m_scissorRect.right = desc.BufferDesc.Width;
+	m_scissorRect.bottom = desc.BufferDesc.Height;
 }
 
 void ElemHelloTriangle::LoadAssets(ID3D12Device* device)
@@ -63,7 +87,9 @@ void ElemHelloTriangle::LoadAssets(ID3D12Device* device)
 		/// because root signature is part of the shader, need to be compiled
 		D3D12SerializeRootSignature(&rootSigDesc, D3D_ROOT_SIGNATURE_VERSION_1, &rootSignature, &error);
 
-		device->CreateRootSignature(0, rootSignature.Get(), rootSignature->GetBufferSize(), IID_PPV_ARGS(&m_rootSig));
+		// invalid parameter
+		//auto hr = device->CreateRootSignature(0, rootSignature.Get(), rootSignature->GetBufferSize(), IID_PPV_ARGS(&m_rootSig));
+		auto hr = device->CreateRootSignature(0, rootSignature->GetBufferPointer(), rootSignature->GetBufferSize(), IID_PPV_ARGS(&m_rootSig));
 	}
 
 	// create pipeline state, including shader compiling
@@ -89,6 +115,7 @@ void ElemHelloTriangle::LoadAssets(ID3D12Device* device)
 		psoDesc.DepthStencilState.DepthEnable = FALSE;
 		psoDesc.DepthStencilState.StencilEnable = FALSE;
 		psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+		psoDesc.RasterizerState.FrontCounterClockwise = TRUE;
 		psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
 		psoDesc.NumRenderTargets = 1; // why 1?
 		psoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
@@ -101,12 +128,8 @@ void ElemHelloTriangle::LoadAssets(ID3D12Device* device)
 		psoDesc.VS = { m_vs->GetBufferPointer(), m_vs->GetBufferSize() };
 		psoDesc.PS = { m_ps->GetBufferPointer(), m_ps->GetBufferSize() };
 
-		device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&m_pso));
+		hr = device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&m_pso));
 	}
-
-	// create cmd list
-	device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, m_cmdAlloc.Get(), m_pso.Get(), IID_PPV_ARGS(&m_cmdList));
-	m_cmdList->Close();
 
 	// create vertex buffer
 	{
@@ -121,6 +144,10 @@ void ElemHelloTriangle::LoadAssets(ID3D12Device* device)
 		// so I need two heap res, one default, one upload
 		// write data to upload, and then copy to the default
 		// which will be used in the gpu
+
+		/// this is because gpu can access to deafult heap very fast
+		/// this method is better for large data like static massive vertices
+
 		CD3DX12_HEAP_PROPERTIES heapDefault(D3D12_HEAP_TYPE_DEFAULT);
 		CD3DX12_HEAP_PROPERTIES heapUpload(D3D12_HEAP_TYPE_UPLOAD);
 
@@ -163,10 +190,15 @@ void ElemHelloTriangle::LoadAssets(ID3D12Device* device)
 		/// then copy the data from m_vertexBuffer to actual gpu memory
 		/// we need two different heap that's because default can only access by GPU
 		/// upload can be access by CPU
+
+		// create cmd list
+		ComPtr<ID3D12GraphicsCommandList> tempCmd;
+		//auto hr = device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_COPY, m_cmdAlloc.Get(), m_pso.Get(), IID_PPV_ARGS(&tempCmd));
+		auto hr = device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_COPY, m_cmdAlloc.Get(), nullptr, IID_PPV_ARGS(&tempCmd));
 		
 		// copy the data to the gpu
 		UpdateSubresources(
-			m_cmdList.Get(), // use a temp cmd list?
+			tempCmd.Get(), // use a temp cmd list?
 			gpuVertexRes.Get(),
 			m_vertexBuffer.Get(),
 			0,
@@ -174,6 +206,14 @@ void ElemHelloTriangle::LoadAssets(ID3D12Device* device)
 			1,
 			&subResData
 		);
+
+		tempCmd->Close();
+
+		// upload the data
+		ID3D12CommandList* list = { tempCmd.Get() };
+		m_cpQueue->ExecuteCommandLists(1, &list);
+
+		// wait for the cmd list to finish execute
 
 		/// updatesubresouces vs. map() and memcpy()?
 		/// map() + memcpy() doesn't require intermediate staging (the cpuVertexRes)
@@ -184,21 +224,19 @@ void ElemHelloTriangle::LoadAssets(ID3D12Device* device)
 		m_vertexBufferView.BufferLocation = m_vertexBuffer->GetGPUVirtualAddress();
 		m_vertexBufferView.StrideInBytes = sizeof(tinyd3d::Vertex);
 		m_vertexBufferView.SizeInBytes = bufferSize;
+
+		// create sync objs to wait all res are uploaded to the gpu
+		device->CreateFence(m_fenceValue, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_fence));
+
+		// create the fence event
+		m_fenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+
+		if (m_fenceEvent == NULL) {
+			throw std::runtime_error("Fail to create fence event handler");
+		}
+
+		waitForPrevFrame();
 	}
-
-	// create sync objs to wait all res are uploaded to the gpu
-	//{
-	//	device->CreateFence(m_fenceValue, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_fence));
-
-	//	// create the fence event
-	//	m_fenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
-
-	//	if (m_fenceEvent == NULL) {
-	//		throw std::runtime_error("Fail to create fence event handler");
-	//	}
-
-	//	waitForPrevFrame();
-	//}
 }
 
 void ElemHelloTriangle::waitForPrevFrame()
@@ -206,7 +244,7 @@ void ElemHelloTriangle::waitForPrevFrame()
 	// store the current fence value
 	// to avoid multi sync happen at the same time
 	auto fence = ++m_fenceValue;
-	m_cmdQueue->Signal(m_fence.Get(), fence);
+	m_cpQueue->Signal(m_fence.Get(), fence);
 	
 	if (m_fence->GetCompletedValue() < fence) {
 		m_fence->SetEventOnCompletion(fence, m_fenceEvent); // push the completion of the event with m_fenceValue
