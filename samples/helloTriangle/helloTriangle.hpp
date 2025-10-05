@@ -7,7 +7,7 @@ using namespace Microsoft::WRL;
 class ElemHelloTriangle : public tinyd3d::IAppElement {
 public:
     ElemHelloTriangle() = default;
-    ~ElemHelloTriangle() = default;
+    virtual ~ElemHelloTriangle() = default;
 
 public:
     void onAttach(tinyd3d::Application* app) override;
@@ -16,11 +16,11 @@ public:
     void onRender(ID3D12GraphicsCommandList* cmd) override;
     void onUIRender() override;
     void onResize() override;
+    void postRender(ID3D12GraphicsCommandList* cmd) override;
 
 private:
     void LoadPipeline(ID3D12Device* device, IDXGISwapChain3* swapchain);
     void LoadAssets(ID3D12Device* device);
-    void waitForPrevFrame();
 
 private:
     // Resources
@@ -39,10 +39,8 @@ private:
     ComPtr<ID3D12CommandQueue> m_cpQueue;
 
     // Sync objs
-    uint16_t m_frameIndex;
-    ComPtr<ID3D12Fence> m_fence;
-    uint64_t m_fenceValue{ 0 };
-    HANDLE m_fenceEvent; // ???
+    tinyd3d::Fence* m_copyFence;
+    HANDLE m_fenceEvent; 
 
     // Shaders
     ComPtr<ID3DBlob> m_vs;

@@ -9,6 +9,8 @@ void ElemHelloTriangle::onAttach(tinyd3d::Application* app)
 	auto device = app->getDevice();
 	auto swapchain = app->getSwapchain();
 	m_cpQueue = app->getQueue(1).queue;
+	m_copyFence = app->getMainCopyFence().get();
+	m_fenceEvent = CreateEvent(nullptr, FALSE, FALSE, "Hello triangle copy fence event");
 
 	// or I get the device, app info here and pass to the functions
 	LoadPipeline(device, swapchain);
@@ -17,7 +19,7 @@ void ElemHelloTriangle::onAttach(tinyd3d::Application* app)
 
 void ElemHelloTriangle::onDetach()
 {
-	// destory the res
+	CloseHandle(m_fenceEvent);
 }
 
 void ElemHelloTriangle::preRender()
@@ -53,6 +55,10 @@ void ElemHelloTriangle::onUIRender()
 }
 
 void ElemHelloTriangle::onResize()
+{
+}
+
+void ElemHelloTriangle::postRender(ID3D12GraphicsCommandList* cmd)
 {
 }
 
@@ -225,29 +231,11 @@ void ElemHelloTriangle::LoadAssets(ID3D12Device* device)
 		m_vertexBufferView.StrideInBytes = sizeof(tinyd3d::Vertex);
 		m_vertexBufferView.SizeInBytes = bufferSize;
 
-		// create sync objs to wait all res are uploaded to the gpu
-		device->CreateFence(m_fenceValue, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_fence));
+		auto fence = ++m_copyFence->fenceValue;
+		m_cpQueue->Signal(m_copyFence->fence.Get(), fence);
 
-		// create the fence event
-		m_fenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
-
-		if (m_fenceEvent == NULL) {
-			throw std::runtime_error("Fail to create fence event handler");
+		if (m_copyFence->fence->GetCompletedValue() < fence) {
+			m_copyFence->fence->SetEventOnCompletion(fence, m_fenceEvent);
 		}
-
-		waitForPrevFrame();
-	}
-}
-
-void ElemHelloTriangle::waitForPrevFrame()
-{
-	// store the current fence value
-	// to avoid multi sync happen at the same time
-	auto fence = ++m_fenceValue;
-	m_cpQueue->Signal(m_fence.Get(), fence);
-	
-	if (m_fence->GetCompletedValue() < fence) {
-		m_fence->SetEventOnCompletion(fence, m_fenceEvent); // push the completion of the event with m_fenceValue
-		WaitForSingleObject(m_fenceEvent, INFINITE);
 	}
 }

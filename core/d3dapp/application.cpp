@@ -1,5 +1,6 @@
 #include "application.hpp"
 #include "elemwindow.hpp"
+#include <stdexcept>
 
 namespace tinyd3d {
 void Application::init(ApplicationInfoDesc& info)
@@ -10,6 +11,9 @@ void Application::init(ApplicationInfoDesc& info)
     m_device = info.device;
     m_queues = info.queues;
     m_renderTargets.resize(info.frameCount);
+    m_graphicsFence = std::make_shared<Fence>();
+    m_computeFence = std::make_shared<Fence>();
+    m_copyFence = std::make_shared<Fence>();
 
     // create allocator
     m_device->CreateCommandAllocator(m_queues[0].desc.Type, IID_PPV_ARGS(&m_cmdAlloc));
@@ -76,6 +80,15 @@ void Application::init(ApplicationInfoDesc& info)
             rtvHandle.Offset(1, m_rtvDescriptorSize);
 		}
     }
+
+    // create sync objs
+    m_device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_graphicsFence->fence));
+    m_device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_computeFence->fence));
+    m_device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_copyFence->fence));
+    m_fenceEvent = CreateEvent(nullptr, FALSE, FALSE, "render targets fence event");
+    if (!m_fenceEvent) {
+        throw std::runtime_error("Fail to create the fenceEvent");
+    }
 }
 
 void Application::run()
@@ -86,9 +99,9 @@ void Application::run()
         DispatchMessage(&msg);
 
         // render a frame
-        const float clearColor[] = { 0.2f, 0.3f, 0.6f, 1.0f };
+        const float clearColor[] = { 0.2f, 0.2f, 0.6f, 1.0f };
+        // TODO: put to end frame
         m_curFrameIdx = m_swapchain->GetCurrentBackBufferIndex();
-        CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m_rtvHeap->GetCPUDescriptorHandleForHeapStart(), m_curFrameIdx, m_rtvDescriptorSize);
 
         // TODO: auto cmd = device->createTempCmd();
         // cmd->begin()
@@ -96,33 +109,43 @@ void Application::run()
         // cmd->stop()
 
         ComPtr<ID3D12GraphicsCommandList> tempCmd;
-        m_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, m_cmdAlloc.Get(), nullptr, IID_PPV_ARGS(&tempCmd));
+        auto hr = m_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, m_cmdAlloc.Get(), nullptr, IID_PPV_ARGS(&tempCmd));
 
+        auto info = m_device->GetDeviceRemovedReason();
+
+        // we need to automatically transition front/back buffer state for draw and present
+        auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+            m_renderTargets[m_curFrameIdx].Get(),
+            D3D12_RESOURCE_STATE_PRESENT,
+            D3D12_RESOURCE_STATE_RENDER_TARGET
+        );
+        tempCmd->ResourceBarrier(1, &barrier);
+
+        CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m_rtvHeap->GetCPUDescriptorHandleForHeapStart(), m_curFrameIdx, m_rtvDescriptorSize);
         tempCmd->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
         tempCmd->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
 
-        // test
-        auto window = m_elements[0].get();
-        window->onRender(tempCmd.Get());
+        drawFrame(tempCmd.Get());
+        // probably will need rtv to perform render 2 target
+        render2Swapchain(tempCmd.Get());
+        presentFrame();
+
+        barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+            m_renderTargets[m_curFrameIdx].Get(),
+            D3D12_RESOURCE_STATE_RENDER_TARGET,
+            D3D12_RESOURCE_STATE_PRESENT
+        );
+        tempCmd->ResourceBarrier(1, &barrier);
 
         tempCmd->Close();
 
-        // execute the cmd
-        // why a new cmd list *?
-        ID3D12CommandList* ppCmdLists[] = { tempCmd.Get() }; // cmds can be patched here
-        m_queues[0].queue->ExecuteCommandLists(_countof(ppCmdLists), ppCmdLists);
+        ID3D12CommandList* cmds = { tempCmd.Get() };
+        m_queues[0].queue->ExecuteCommandLists(1, &cmds);
 
         // test
         m_swapchain->Present(1, 0);
 
-        drawFrame(tempCmd.Get());
-        // probably will need rtv to perform render 2 target
-        render2swapchain(tempCmd.Get());
-        presentFrame();
-
-        // add sync here
-
-        // endFrame();
+        endFrame(tempCmd.Get());
     }
 
     close();
@@ -134,11 +157,14 @@ void Application::addElement(std::shared_ptr<IAppElement> elem)
     elem->onAttach(this);
 }
 
-void Application::drawFrame(ID3D12CommandList* cmd)
+void Application::drawFrame(ID3D12GraphicsCommandList* cmd)
 {
+    for (auto& elem : m_elements) {
+        elem->onRender(cmd);
+    }
 }
 
-void Application::render2swapchain(ID3D12CommandList* cmd)
+void Application::render2Swapchain(ID3D12GraphicsCommandList* cmd)
 {
 }
 
@@ -146,8 +172,30 @@ void Application::presentFrame()
 {
 }
 
+void Application::endFrame(ID3D12GraphicsCommandList* cmd)
+{
+    // call postRender of each elements?
+    // bug here: can't use temp cmd
+    //for (auto& elem : m_elements) {
+    //    elem->postRender(cmd);
+    //}
+    //cmd->Close();
+
+    auto curFence = ++m_graphicsFence->fenceValue;
+    m_queues[0].queue->Signal(m_graphicsFence->fence.Get(), curFence);
+
+    if (m_graphicsFence->fence->GetCompletedValue() < curFence) {
+        m_graphicsFence->fence->SetEventOnCompletion(curFence, m_fenceEvent);
+        WaitForSingleObject(m_fenceEvent, INFINITE);
+    }
+}
+
 void Application::close()
 {
+    for (auto& elem : m_elements) {
+        elem->onDetach();
+    }
+
     m_elements.clear();
 
     // TODO: flush the cmd and wait the gpu to finish

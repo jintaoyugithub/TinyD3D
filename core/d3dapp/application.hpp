@@ -24,14 +24,20 @@ struct QueueInfo {
     ComPtr<ID3D12CommandQueue> queue{ NULL };
 };
 
+struct Fence {
+    ComPtr<ID3D12Fence> fence;
+    inline static uint64_t fenceValue = 0;
+};
+
 struct IAppElement {
 public:
     virtual void onAttach(Application* app) = 0;
     virtual void onDetach() = 0;
     virtual void preRender() = 0;
-    virtual void onRender(ID3D12CommandList* cmd) = 0;
+    virtual void onRender(ID3D12GraphicsCommandList* cmd) = 0;
     virtual void onUIRender() = 0;
     virtual void onResize() = 0;
+    virtual void postRender(ID3D12GraphicsCommandList* cmd) = 0;
 
     virtual ~IAppElement() = default;
 };
@@ -81,18 +87,22 @@ public:
     inline IDXGISwapChain3* getSwapchain() const { return m_swapchain.Get(); };
     inline QueueInfo getQueue(uint16_t idx) const { return m_queues[idx]; };
     inline ID3D12Resource* getRenderTargets(uint16_t idx) const { return m_renderTargets[idx].Get(); };
+    inline std::shared_ptr<Fence> getMainCopyFence() const { return m_copyFence; };
 
     //inline WindowInstance getWindowInstance() const { return m_appInfoDesc.windowConfig.windowInstance; };
     inline WindowHandler getMainWindow() const { return m_mainWindow; };
     inline uvec2 getWindowSize() const { return m_appInfo.windowConfig.windowSize; };
 
 private:
-    void drawFrame(ID3D12CommandList* cmd);
-    void render2swapchain(ID3D12CommandList* cmd);
+    void drawFrame(ID3D12GraphicsCommandList* cmd);
+    void render2Swapchain(ID3D12GraphicsCommandList* cmd);
     void presentFrame();
 
-    // TODO
-    void endFrame();
+    /// <summary>
+    /// wait for the gpu to finish
+    /// or record the cmd for the next frame
+    /// </summary>
+    void endFrame(ID3D12GraphicsCommandList* cmd);
 
 private:
     ApplicationInfoDesc m_appInfo;
@@ -110,6 +120,12 @@ private:
     ComPtr<IDXGIAdapter1> m_adapter;
     std::vector<std::shared_ptr<IAppElement>> m_elements;
     std::vector<QueueInfo> m_queues;
+
+    // sync objs
+    std::shared_ptr<Fence> m_graphicsFence;
+    std::shared_ptr<Fence> m_computeFence;
+    std::shared_ptr<Fence> m_copyFence;
+    HANDLE m_fenceEvent;
 
     // TODO: command line arguments
 };

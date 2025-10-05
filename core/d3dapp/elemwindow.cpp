@@ -61,7 +61,7 @@ void tinyd3d::ElemWindow::preRender()
 {
 }
 
-void tinyd3d::ElemWindow::onRender(ID3D12CommandList* cmd)
+void tinyd3d::ElemWindow::onRender(ID3D12GraphicsCommandList* cmd)
 {
 }
 
@@ -70,5 +70,9 @@ void tinyd3d::ElemWindow::onUIRender()
 }
 
 void tinyd3d::ElemWindow::onResize()
+{
+}
+
+void tinyd3d::ElemWindow::postRender(ID3D12GraphicsCommandList* cmd)
 {
 }

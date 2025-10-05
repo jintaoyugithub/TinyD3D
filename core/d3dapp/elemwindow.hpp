@@ -14,9 +14,10 @@ public:
     void onAttach(Application* app) override;
     void onDetach() override;
     void preRender() override;
-    void onRender(ID3D12CommandList* cmd) override;
+    void onRender(ID3D12GraphicsCommandList* cmd) override;
     void onUIRender() override;
     void onResize() override;
+    void postRender(ID3D12GraphicsCommandList* cmd) override;
 
     // Getters
     inline WindowHandler getMainWindow() const { return m_mainWindow; };
