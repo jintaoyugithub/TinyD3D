@@ -3,6 +3,7 @@
 #endif
 
 #include "helloWorkGraph.hpp"
+#include <atlcomcli.h>
 #include <d3dapp/elemwindow.hpp>
 #include <memory>
 #include <iostream>
@@ -19,26 +20,46 @@
 
 #define Verify tinyd3d::Verify
 
+extern "C" { __declspec(dllexport) extern const UINT D3D12SDKVersion = 618; }
+extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = u8".\\D3D12\\"; }
+
 int wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, PWSTR pCmdLine, int nCmdShow) {
+
+	// This is really important
+#ifdef _DEBUG
+	{
+		ComPtr<ID3D12Debug> dbgController;
+		if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&dbgController)))) {
+			dbgController->EnableDebugLayer();
+		}
+	}
+#endif
+
 	tinyd3d::ApplicationInfoDesc appInfo{};
 	appInfo.windowConfig.title = "Hello Work Graph";
 	appInfo.windowConfig.windowInstance = hInstance;
 	appInfo.windowConfig.nCmdShow = nCmdShow;
 
-	D3D12_FEATURE_DATA_D3D12_OPTIONS21 Options{};
 	// Enum adapter and create device
 	ComPtr<IDXGIFactory4> factor;
 	ComPtr<IDXGIAdapter1> adapter;
-	Verify(CreateDXGIFactory1(IID_PPV_ARGS(&factor)));
+	Verify(CreateDXGIFactory2(0, IID_PPV_ARGS(&factor)));
 
+	bool supported = false;
 	for(auto idx = 0; factor->EnumAdapters1(idx, &adapter) != DXGI_ERROR_NOT_FOUND; ++idx) {
-		Verify(D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_12_0, IID_PPV_ARGS(&appInfo.device)));
+		Verify(D3D12CreateDevice(nullptr, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&appInfo.device)));
 
 		// check if the device support work graph
 		D3D12_FEATURE_DATA_D3D12_OPTIONS21 options{};
-		appInfo.device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS21, &options, sizeof(options));
-		if (options.WorkGraphsTier != D3D12_WORK_GRAPHS_TIER_NOT_SUPPORTED)
+		Verify(appInfo.device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS21, &options, sizeof(options)));
+		if (options.WorkGraphsTier != D3D12_WORK_GRAPHS_TIER_NOT_SUPPORTED) {
+			supported = true;
 			break;
+		}
+	}
+
+	if (!supported) {
+		throw std::runtime_error("Can find physical device that support work graph");
 	}
 
 	// queue info
