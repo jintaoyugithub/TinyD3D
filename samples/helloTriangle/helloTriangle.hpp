@@ -30,12 +30,11 @@ private:
     // Pipeline obj
     D3D12_VIEWPORT m_viewport;
     D3D12_RECT m_scissorRect;
-    ComPtr<ID3D12CommandAllocator> m_cmdAlloc;
     ComPtr<ID3D12RootSignature> m_rootSig;
     ComPtr<ID3D12PipelineState> m_pso;
-    ComPtr<ID3D12DescriptorHeap> m_rtvHeap;
 
     // for data copy and mapping
+    ComPtr<ID3D12CommandAllocator> m_cmdAlloc;
     ComPtr<ID3D12CommandQueue> m_cpQueue;
 
     // Sync objs

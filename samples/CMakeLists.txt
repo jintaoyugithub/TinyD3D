@@ -6,7 +6,7 @@ function(add_sample sample_name)
     )
 
     file(GLOB SRC
-        ${CMAKE_CURRENT_SOURCE_DIR}*.hpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/*.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp
     )
 

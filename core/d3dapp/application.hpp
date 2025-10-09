@@ -57,14 +57,15 @@ struct ApplicationInfoDesc {
     WindowConfig windowConfig;
 
     // TODO: add d3d related variables like device, queue info etc.
-    ComPtr<ID3D12Device> device{ NULL };
+    ComPtr<ID3D12Device14> device{ NULL };
     ComPtr<IDXGIAdapter1> adapter{ NULL };
     //ComPtr<IDXGISwapChain3> swapChain{ NULL };
     std::vector<QueueInfo> queues;
 
     // TODO: move the config to json
+    // and construct with d3dcontext class
     D3D_FEATURE_LEVEL featureLevel{D3D_FEATURE_LEVEL_12_0};
-    //std::vector<> supportFeatures;
+    std::vector<D3D12_FEATURE_DATA_D3D12_OPTIONS> Options;
 
     uint16_t shaderCompileFlags{ 0 };
 };
@@ -83,10 +84,10 @@ public:
 
     // Getters
     inline ApplicationInfoDesc getAppInfo() const { return m_appInfo; };
-    inline ID3D12Device* getDevice() const { return m_device.Get(); };
-    inline IDXGISwapChain3* getSwapchain() const { return m_swapchain.Get(); };
+    inline ComPtr<ID3D12Device> getDevice() const { return m_device; };
+    inline ComPtr<IDXGISwapChain3> getSwapchain() const { return m_swapchain; };
     inline QueueInfo getQueue(uint16_t idx) const { return m_queues[idx]; };
-    inline ID3D12Resource* getRenderTargets(uint16_t idx) const { return m_renderTargets[idx].Get(); };
+    inline ComPtr<ID3D12Resource> getRenderTargets(uint16_t idx) const { return m_renderTargets[idx]; };
     inline std::shared_ptr<Fence> getMainCopyFence() const { return m_copyFence; };
 
     //inline WindowInstance getWindowInstance() const { return m_appInfoDesc.windowConfig.windowInstance; };

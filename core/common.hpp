@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Windows.h>
+#include <utils/helper.hpp>
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 #include <glm/vec4.hpp>

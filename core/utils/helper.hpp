@@ -1,17 +1,12 @@
 #pragma once
 
-#include <filesystem>
+#include <exception>
+#include <Windows.h>
 
 namespace tinyd3d {
-	inline std::wstring getAssetPath(const wchar_t* name) {
-		std::filesystem::path src = __FILE__;
-		auto path = src.parent_path() / name;
-		auto test = std::filesystem::current_path();
-
-		if (!std::filesystem::exists(path)) {
-			throw std::runtime_error("shader file doesn't exist!");
+	inline void Verify(HRESULT hr) {
+		if (FAILED(hr)) {
+			throw std::exception();
 		}
-
-		return path.wstring();
 	}
 }

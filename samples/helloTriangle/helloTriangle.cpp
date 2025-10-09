@@ -13,8 +13,8 @@ void ElemHelloTriangle::onAttach(tinyd3d::Application* app)
 	m_fenceEvent = CreateEvent(nullptr, FALSE, FALSE, "Hello triangle copy fence event");
 
 	// or I get the device, app info here and pass to the functions
-	LoadPipeline(device, swapchain);
-	LoadAssets(device);
+	LoadPipeline(device.Get(), swapchain.Get());
+	LoadAssets(device.Get());
 }
 
 void ElemHelloTriangle::onDetach()
