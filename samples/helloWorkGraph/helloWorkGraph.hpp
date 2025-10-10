@@ -39,7 +39,6 @@ private:
     ComPtr<ID3D12Device14> m_device;
     // leave the application only responsible for graphics
     ComPtr<ID3D12CommandQueue> m_comQueue;
-    ComPtr<ID3D12CommandAllocator> m_comAlloc;
 
     // work graph
     ComPtr<IDxcCompiler3> m_dxcompiler;
@@ -50,5 +49,9 @@ private:
     ComPtr<ID3D12Resource> m_backingBuffer;
 
     DxcCreateInstanceProc m_dxcInstance;
+
+    // sync obj
+    std::shared_ptr<tinyd3d::Fence> m_compFence;
+    HANDLE m_fenceEvent{ nullptr };
 };
 }

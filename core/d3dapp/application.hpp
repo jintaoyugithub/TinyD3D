@@ -1,6 +1,5 @@
 #pragma once
 
-#include <directx/d3dx12.h>
 #include <d3d12.h>
 #include <memory>
 #include <vector>
@@ -89,6 +88,7 @@ public:
     inline QueueInfo getQueue(uint16_t idx) const { return m_queues[idx]; };
     inline ComPtr<ID3D12Resource> getRenderTargets(uint16_t idx) const { return m_renderTargets[idx]; };
     inline std::shared_ptr<Fence> getMainCopyFence() const { return m_copyFence; };
+    inline std::shared_ptr<Fence> getMainCompFence() const { return m_computeFence; };
 
     //inline WindowInstance getWindowInstance() const { return m_appInfoDesc.windowConfig.windowInstance; };
     inline WindowHandler getMainWindow() const { return m_mainWindow; };

@@ -1,3 +1,4 @@
+#include <directx/d3dx12.h>
 #include "application.hpp"
 #include "elemwindow.hpp"
 #include <stdexcept>

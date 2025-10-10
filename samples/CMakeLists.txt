@@ -30,7 +30,9 @@ function(add_sample sample_name)
     target_include_directories(
         ${sample_name}
         PUBLIC
-        ${CMAKE_SOURCE_DIR}/thirdparty/directx-headers/include
+        # specify the file you want to use in dirextx-heads
+        # since it will replace the one in the Windows SDK
+        ${CMAKE_SOURCE_DIR}/thirdparty/directx-headers/include/
         ${CMAKE_SOURCE_DIR}/core/
         ${CMAKE_SOURCE_DIR}/thirdparty/imgui
         ${CMAKE_SOURCE_DIR}/thirdparty/glm
