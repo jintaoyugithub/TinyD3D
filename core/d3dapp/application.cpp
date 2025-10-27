@@ -174,10 +174,12 @@ void Application::drawFrame(ID3D12GraphicsCommandList* cmd)
     for (auto& elem : m_elements) {
         elem->onUIRender();
     }
+
     ImGui::Render();
 
-    for (auto& elem : m_elements) {
-        elem->onRender(cmd);
+    // should be render in backward
+    for (auto itr = m_elements.rbegin(); itr != m_elements.rend(); itr++) {
+        (*itr)->onRender(cmd);
     }
 }
 
