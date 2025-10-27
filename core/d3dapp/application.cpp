@@ -95,9 +95,11 @@ void Application::init(ApplicationInfoDesc& info)
 void Application::run()
 {
     MSG msg = {};
-    while (GetMessage(&msg, NULL, 0, 0) > 0) {
-        TranslateMessage(&msg);
-        DispatchMessage(&msg);
+    while (msg.message != WM_QUIT) {
+        if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
+            TranslateMessage(&msg);
+            DispatchMessage(&msg);
+        }
 
         // render a frame
         const float clearColor[] = { 0.2f, 0.2f, 0.6f, 1.0f };
@@ -108,6 +110,9 @@ void Application::run()
         // cmd->begin()
         // ...
         // cmd->stop()
+
+        // reset the allocator
+        Verify(m_cmdAlloc->Reset());
 
         ComPtr<ID3D12GraphicsCommandList> tempCmd;
         auto hr = m_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, m_cmdAlloc.Get(), nullptr, IID_PPV_ARGS(&tempCmd));
