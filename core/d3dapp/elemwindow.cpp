@@ -1,19 +1,22 @@
 #include "elemwindow.hpp"
+#include "imgui.h"
 
 // Function actually handle the window inputs and events
+extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
+    if (ImGui_ImplWin32_WndProcHandler(hwnd, uMsg, wParam, lParam))
+        return true;
+
     switch (uMsg)
     {
     case WM_DESTROY:
         PostQuitMessage(0);
-        break;
+        return 0;
 
     case WM_PAINT:
-        break;
-    
-    default:
-        break;
+        return 0;
     }
     return DefWindowProc(hwnd, uMsg, wParam, lParam);
 }

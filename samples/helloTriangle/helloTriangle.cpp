@@ -236,6 +236,7 @@ void ElemHelloTriangle::LoadAssets(ID3D12Device* device)
 
 		if (m_copyFence->fence->GetCompletedValue() < fence) {
 			m_copyFence->fence->SetEventOnCompletion(fence, m_fenceEvent);
+			WaitForSingleObject(m_fenceEvent, INFINITE);
 		}
 	}
 }

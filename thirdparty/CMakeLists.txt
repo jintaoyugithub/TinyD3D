@@ -5,6 +5,10 @@ add_subdirectory(directx-headers)
 file(GLOB IMGUI_SRC
     ${CMAKE_CURRENT_SOURCE_DIR}/imgui/*.h
     ${CMAKE_CURRENT_SOURCE_DIR}/imgui/*.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/imgui/backends/imgui_impl_win32.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/imgui/backends/imgui_impl_dx12.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/imgui/backends/imgui_impl_win32.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/imgui/backends/imgui_impl_dx12.cpp
 )
 
 # compile dxc

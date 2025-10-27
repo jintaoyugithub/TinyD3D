@@ -98,6 +98,7 @@ private:
     void drawFrame(ID3D12GraphicsCommandList* cmd);
     void render2Swapchain(ID3D12GraphicsCommandList* cmd);
     void presentFrame();
+    void renderUI(ID3D12GraphicsCommandList* cmd);
 
     /// <summary>
     /// wait for the gpu to finish

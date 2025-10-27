@@ -1,6 +1,7 @@
 #include <directx/d3dx12.h>
 #include "application.hpp"
 #include "elemwindow.hpp"
+#include "elemimgui.hpp"
 #include <stdexcept>
 
 namespace tinyd3d {
@@ -21,10 +22,9 @@ void Application::init(ApplicationInfoDesc& info)
 
     // add a window element
     auto elemWindow = std::make_shared<ElemWindow>(info.windowConfig); // this will cause at the end of this func, elemWindow won't exist anymore
-    //auto elemImgui = std::make_shared<ElemWindow>();
+    auto elemImgui = std::make_shared<ElemImgui>();
 
     addElement(elemWindow);
-    //addElement(elemImgui);
 
     m_mainWindow = elemWindow->getMainWindow();
 
@@ -56,6 +56,9 @@ void Application::init(ApplicationInfoDesc& info)
 		// project the swapchain to the version we want
 		swapChain.As(&m_swapchain);
     }
+
+    // need swapchian to init
+    addElement(elemImgui);
 
     // move the render target and rtv handler here
     // as default render target for the swapchain present
@@ -101,6 +104,10 @@ void Application::run()
             DispatchMessage(&msg);
         }
 
+        ImGui_ImplDX12_NewFrame();
+	    ImGui_ImplWin32_NewFrame();
+	    ImGui::NewFrame();
+
         // render a frame
         const float clearColor[] = { 0.2f, 0.2f, 0.6f, 1.0f };
         // TODO: put to end frame
@@ -117,8 +124,6 @@ void Application::run()
         ComPtr<ID3D12GraphicsCommandList> tempCmd;
         auto hr = m_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, m_cmdAlloc.Get(), nullptr, IID_PPV_ARGS(&tempCmd));
 
-        auto info = m_device->GetDeviceRemovedReason();
-
         // we need to automatically transition front/back buffer state for draw and present
         auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(
             m_renderTargets[m_curFrameIdx].Get(),
@@ -133,8 +138,8 @@ void Application::run()
 
         drawFrame(tempCmd.Get());
         // probably will need rtv to perform render 2 target
+        // necessary?
         render2Swapchain(tempCmd.Get());
-        presentFrame();
 
         barrier = CD3DX12_RESOURCE_BARRIER::Transition(
             m_renderTargets[m_curFrameIdx].Get(),
@@ -149,6 +154,7 @@ void Application::run()
         m_queues[0].queue->ExecuteCommandLists(1, &cmds);
 
         // test
+        //presentFrame();
         m_swapchain->Present(1, 0);
 
         endFrame(tempCmd.Get());
@@ -166,6 +172,11 @@ void Application::addElement(std::shared_ptr<IAppElement> elem)
 void Application::drawFrame(ID3D12GraphicsCommandList* cmd)
 {
     for (auto& elem : m_elements) {
+        elem->onUIRender();
+    }
+    ImGui::Render();
+
+    for (auto& elem : m_elements) {
         elem->onRender(cmd);
     }
 }
@@ -178,15 +189,13 @@ void Application::presentFrame()
 {
 }
 
+void Application::renderUI(ID3D12GraphicsCommandList* cmd)
+{
+    // render ui in backward
+}
+
 void Application::endFrame(ID3D12GraphicsCommandList* cmd)
 {
-    // call postRender of each elements?
-    // bug here: can't use temp cmd
-    //for (auto& elem : m_elements) {
-    //    elem->postRender(cmd);
-    //}
-    //cmd->Close();
-
     auto curFence = ++m_graphicsFence->fenceValue;
     m_queues[0].queue->Signal(m_graphicsFence->fence.Get(), curFence);
 
@@ -194,6 +203,8 @@ void Application::endFrame(ID3D12GraphicsCommandList* cmd)
         m_graphicsFence->fence->SetEventOnCompletion(curFence, m_fenceEvent);
         WaitForSingleObject(m_fenceEvent, INFINITE);
     }
+
+    // TODO: record cmd for the next frame
 }
 
 void Application::close()
