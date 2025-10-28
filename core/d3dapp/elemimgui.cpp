@@ -44,7 +44,7 @@ void tinyd3d::ElemImgui::onRender(ID3D12GraphicsCommandList* cmd)
 
 void tinyd3d::ElemImgui::onUIRender()
 {
-	ImGui::ShowDemoWindow();
+	//ImGui::ShowDemoWindow();
 }
 
 void tinyd3d::ElemImgui::onResize()
@@ -57,20 +57,39 @@ void tinyd3d::ElemImgui::postRender(ID3D12GraphicsCommandList* cmd)
 
 void tinyd3d::ElemImgui::initImgui() {
 	IMGUI_CHECKVERSION();
+	ImGui_ImplWin32_EnableDpiAwareness();
+	float scale = ImGui_ImplWin32_GetDpiScaleForMonitor(::MonitorFromPoint(POINT{ 0, 0 }, MONITOR_DEFAULTTOPRIMARY));
+	RECT rc;
+	GetClientRect(m_hInstance, &rc);
+	DXGI_SWAP_CHAIN_DESC1 desc;
+	m_swapchain->GetDesc1(&desc);
+
 	ImGui::CreateContext();
-	ImGuiIO& io = ImGui::GetIO();
+	ImGuiIO& io = ImGui::GetIO(); (void)io;
 
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
 	//io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;          IF using Docking Branch
+	//io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;       // Enable render the imgui window outside the main window (docking)
+
+	/// Cursor offset error
+	//io.DisplaySize = ImVec2((float)rc.right, (float)rc.bottom);
+	//auto fbScale = ImVec2((float)rc.right / desc.Width, (float)rc.bottom / desc.Height);
+	//io.DisplayFramebufferScale = fbScale;
+
+	// Setup style
+	ImGui::StyleColorsDark();
+
+	// Setup scaling
+	ImGuiStyle& style = ImGui::GetStyle();
+	style.ScaleAllSizes(scale);
+	style.FontScaleDpi = scale;
 
 	// Set up render backend
 	ImGui_ImplWin32_Init(m_hInstance);
 
 	ImGui_ImplDX12_InitInfo info{};
-	DXGI_SWAP_CHAIN_DESC1 desc;
 
-	m_swapchain->GetDesc1(&desc);
 	info.Device = m_device.Get();
 	info.CommandQueue = m_queue.queue.Get();
 	info.NumFramesInFlight = desc.BufferCount;
