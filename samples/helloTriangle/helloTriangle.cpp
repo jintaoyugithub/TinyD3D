@@ -1,6 +1,7 @@
 #include <directx/d3dx12.h>
 #include "helloTriangle.hpp"
 #include <filesystem>
+#include <imgui.h>
 
 // TODO: some repeatable logic should move to dx12 backend
 
@@ -52,6 +53,13 @@ void ElemHelloTriangle::onRender(ID3D12GraphicsCommandList* cmd)
 
 void ElemHelloTriangle::onUIRender()
 {
+	static float f = 0.0f;
+	ImGui::Begin("Hello Triangle");
+
+	ImGui::Text("This is a test text!");
+	ImGui::SliderFloat("float", &f, 0.0f, 1.0f);
+
+	ImGui::End();
 }
 
 void ElemHelloTriangle::onResize()

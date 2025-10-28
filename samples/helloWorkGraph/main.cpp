@@ -49,6 +49,9 @@ int wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, PWSTR pCmdLine, int nC
 	for(auto idx = 0; factor->EnumAdapters1(idx, &adapter) != DXGI_ERROR_NOT_FOUND; ++idx) {
 		Verify(D3D12CreateDevice(nullptr, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&appInfo.device)));
 
+		DXGI_ADAPTER_DESC1 temp;
+		adapter->GetDesc1(&temp);
+
 		// check if the device support work graph
 		D3D12_FEATURE_DATA_D3D12_OPTIONS21 options{};
 		Verify(appInfo.device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS21, &options, sizeof(options)));
