@@ -7,3 +7,9 @@
 [submodule "thirdparty/directx-headers"]
 	path = thirdparty/directx-headers
 	url = https://github.com/microsoft/DirectX-Headers.git
+[submodule "thirdparty/tinygltf"]
+	path = thirdparty/tinygltf
+	url = https://github.com/syoyo/tinygltf.git
+[submodule "thirdparty/D3D12MemoryAllocator"]
+	path = thirdparty/D3D12MemoryAllocator
+	url = https://github.com/GPUOpen-LibrariesAndSDKs/D3D12MemoryAllocator.git

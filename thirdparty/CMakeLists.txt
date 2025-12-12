@@ -1,6 +1,10 @@
 add_subdirectory(glm)
 add_subdirectory(directx-headers)
 
+set(TINYGLTF_HEADER_ONLY ON CACHE INTERNAL "" FORCE)
+set(TINYGLTF_INSTALL OFF CACHE INTERNAL "" FORCE)
+add_subdirectory(tinygltf)
+
 # compile imgui into a static lib
 file(GLOB IMGUI_SRC
     ${CMAKE_CURRENT_SOURCE_DIR}/imgui/*.h
@@ -9,6 +13,11 @@ file(GLOB IMGUI_SRC
     ${CMAKE_CURRENT_SOURCE_DIR}/imgui/backends/imgui_impl_dx12.h
     ${CMAKE_CURRENT_SOURCE_DIR}/imgui/backends/imgui_impl_win32.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/imgui/backends/imgui_impl_dx12.cpp
+)
+
+file(GLOB D3D12MA_SRC
+    ${CMAKE_CURRENT_SOURCE_DIR}/D3D12MemoryAllocator/include/*.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/D3D12MemoryAllocator/src/D3D12MemAlloc.cpp
 )
 
 # compile dxc
@@ -39,6 +48,7 @@ set_target_properties(
     INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}/dxc/inc
 )
 
+# Compile imgui lib
 add_library(
     imgui
     STATIC
@@ -49,4 +59,17 @@ target_include_directories(
     imgui
     PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/imgui
+)
+
+# Compile D3DMA lib
+add_library(
+    d3dma
+    STATIC
+    ${D3D12MA_SRC}
+)
+
+target_include_directories(
+    d3dma
+    PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/D3D12MemoryAllocator/include
 )
