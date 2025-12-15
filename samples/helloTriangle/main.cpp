@@ -3,10 +3,7 @@
 #endif
 
 #include "helloTriangle.hpp"
-#include <d3dapp/elemwindow.hpp>
 #include <Windows.h>
-#include <memory>
-#include <iostream>
 
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow)
 {
@@ -56,14 +53,14 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 
     // TODO: appConfig.queus = tinyd3d::getQueuesInfo(deivce, ...);
     // graphics queue
-    tinyd3d::QueueInfo cgQueue;
+    tinyd3d::Queue cgQueue;
     cgQueue.desc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
     cgQueue.desc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
     appConfig.device->CreateCommandQueue(&cgQueue.desc, IID_PPV_ARGS(&cgQueue.queue));
     appConfig.queues.push_back(cgQueue);
 
     // copy queue
-    tinyd3d::QueueInfo cpQueue;
+    tinyd3d::Queue cpQueue;
     cpQueue.desc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
     cpQueue.desc.Type = D3D12_COMMAND_LIST_TYPE_COPY;
     appConfig.device->CreateCommandQueue(&cpQueue.desc, IID_PPV_ARGS(&cpQueue.queue));

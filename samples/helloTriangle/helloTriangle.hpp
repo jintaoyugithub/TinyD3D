@@ -2,7 +2,7 @@
 
 #include <d3dapp/application.hpp>
 
-using namespace Microsoft::WRL;
+using Microsoft::WRL::ComPtr;
 
 class ElemHelloTriangle : public tinyd3d::IAppElement {
 public:
@@ -25,6 +25,7 @@ private:
 private:
     // Resources
     ComPtr<ID3D12Resource> m_vertexBuffer;
+	ComPtr<ID3D12Resource> gpuVertexRes;
     D3D12_VERTEX_BUFFER_VIEW m_vertexBufferView;
 
     // Pipeline obj

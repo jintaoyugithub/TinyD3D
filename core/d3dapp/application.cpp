@@ -221,4 +221,11 @@ void Application::close()
     // otherwise will cause swapchain deconstructor fail
     // since you're still using the gpu
 }
+
+// TOOD: migrate as a helper function
+void Application::dbgEnable()
+{
+    ComPtr<ID3D12Debug> dbgController;
+    if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&dbgController)))) dbgController->EnableDebugLayer();
+}
 }

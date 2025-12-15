@@ -2,6 +2,7 @@
 #include "helloWorkGraph.hpp"
 #include <stdexcept>
 #include <filesystem>
+#include "tiny_gltf.h"
 
 void tinyd3d::HelloWrokGraph::onAttach(tinyd3d::Application* app)
 {

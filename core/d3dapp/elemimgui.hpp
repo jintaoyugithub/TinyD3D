@@ -1,6 +1,6 @@
 #pragma once
 
-#include <common.hpp>
+#include <utils/pch.hpp>
 #include "application.hpp"
 #include <imgui.h>
 #include <backends/imgui_impl_dx12.h>
@@ -71,7 +71,7 @@ namespace tinyd3d {
 
     private:
         ComPtr<ID3D12Device> m_device;
-        QueueInfo m_queue;
+        Queue m_queue;
         ComPtr<IDXGISwapChain3> m_swapchain;
         WindowHandler m_hInstance;
         

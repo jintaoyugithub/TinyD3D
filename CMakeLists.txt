@@ -12,5 +12,6 @@ project(
     LANGUAGES C CXX
 )
 
+add_subdirectory(core)
 add_subdirectory(thirdparty)
 add_subdirectory(samples)

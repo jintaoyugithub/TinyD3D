@@ -21,7 +21,7 @@
 #define Verify tinyd3d::Verify
 
 extern "C" { __declspec(dllexport) extern const UINT D3D12SDKVersion = 618; }
-extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = u8".\\D3D12\\"; }
+extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = u8".\\D3D12\\"; } // this might require copy the all .dlls from downloaded NuGet packages to the specified path
 
 int wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, PWSTR pCmdLine, int nCmdShow) {
 
@@ -49,9 +49,6 @@ int wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, PWSTR pCmdLine, int nC
 	for(auto idx = 0; factor->EnumAdapters1(idx, &adapter) != DXGI_ERROR_NOT_FOUND; ++idx) {
 		Verify(D3D12CreateDevice(nullptr, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&appInfo.device)));
 
-		DXGI_ADAPTER_DESC1 temp;
-		adapter->GetDesc1(&temp);
-
 		// check if the device support work graph
 		D3D12_FEATURE_DATA_D3D12_OPTIONS21 options{};
 		Verify(appInfo.device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS21, &options, sizeof(options)));
@@ -66,7 +63,7 @@ int wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, PWSTR pCmdLine, int nC
 	}
 
 	// queue info
-	tinyd3d::QueueInfo cgQueue{};
+	tinyd3d::Queue cgQueue{};
 	cgQueue.desc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
 	cgQueue.desc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
 	appInfo.device->CreateCommandQueue(&cgQueue.desc, IID_PPV_ARGS(&cgQueue.queue));

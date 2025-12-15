@@ -1,5 +1,6 @@
 add_subdirectory(glm)
 add_subdirectory(directx-headers)
+add_subdirectory(directxTex)
 
 set(TINYGLTF_HEADER_ONLY ON CACHE INTERNAL "" FORCE)
 set(TINYGLTF_INSTALL OFF CACHE INTERNAL "" FORCE)

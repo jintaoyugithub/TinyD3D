@@ -1,6 +1,6 @@
 #pragma once
 
-#include <common.hpp>
+#include <utils/pch.hpp>
 #include "application.hpp"
 
 namespace tinyd3d {

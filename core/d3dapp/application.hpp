@@ -1,11 +1,10 @@
 #pragma once
 
-#include <d3d12.h>
+#include "../utils/pch.hpp"
 #include <memory>
 #include <vector>
 #include <assert.h>
 // TODO: make it target include
-#include <common.hpp>
 #include <wrl.h>
 #include <dxgi1_6.h>
 #include <d3dcompiler.h>
@@ -16,17 +15,6 @@ namespace tinyd3d {
 using namespace Microsoft::WRL;
 
 class Application;
-
-//TODO: move to d3dbackend queue.hpp
-struct QueueInfo {
-    D3D12_COMMAND_QUEUE_DESC desc{};
-    ComPtr<ID3D12CommandQueue> queue{ NULL };
-};
-
-struct Fence {
-    ComPtr<ID3D12Fence> fence;
-    inline static uint64_t fenceValue = 0;
-};
 
 struct IAppElement {
 public:
@@ -59,7 +47,7 @@ struct ApplicationInfoDesc {
     ComPtr<ID3D12Device14> device{ NULL };
     ComPtr<IDXGIAdapter1> adapter{ NULL };
     //ComPtr<IDXGISwapChain3> swapChain{ NULL };
-    std::vector<QueueInfo> queues;
+    std::vector<Queue> queues;
 
     // TODO: move the config to json
     // and construct with d3dcontext class
@@ -77,6 +65,7 @@ public:
     void init(ApplicationInfoDesc& info);
     void run();
     void close();
+    void dbgEnable();
 
 public:
     void addElement(const std::shared_ptr<IAppElement> elem);
@@ -85,7 +74,7 @@ public:
     inline ApplicationInfoDesc getAppInfo() const { return m_appInfo; };
     inline ComPtr<ID3D12Device> getDevice() const { return m_device; };
     inline ComPtr<IDXGISwapChain3> getSwapchain() const { return m_swapchain; };
-    inline QueueInfo getQueue(uint16_t idx) const { return m_queues[idx]; };
+    inline Queue getQueue(uint16_t idx) const { return m_queues[idx]; };
     inline ComPtr<ID3D12Resource> getRenderTargets(uint16_t idx) const { return m_renderTargets[idx]; };
     inline std::shared_ptr<Fence> getMainCopyFence() const { return m_copyFence; };
     inline std::shared_ptr<Fence> getMainCompFence() const { return m_computeFence; };
@@ -121,7 +110,7 @@ private:
     ComPtr<ID3D12Device> m_device;
     ComPtr<IDXGIAdapter1> m_adapter;
     std::vector<std::shared_ptr<IAppElement>> m_elements;
-    std::vector<QueueInfo> m_queues;
+    std::vector<Queue> m_queues;
 
     // sync objs
     std::shared_ptr<Fence> m_graphicsFence;

@@ -5,6 +5,20 @@
 
 // TODO: some repeatable logic should move to dx12 backend
 
+#include "tiny_gltf.h"
+using namespace tinygltf;
+
+void loadModel(std::string filename) {
+	Model model;
+	TinyGLTF loader;
+	std::string err;
+	std::string warn;
+
+	bool ret = loader.LoadASCIIFromFile(&model, &err, &warn, filename);
+
+	assert(ret);
+}
+
 void ElemHelloTriangle::onAttach(tinyd3d::Application* app)
 {
 	auto device = app->getDevice();
@@ -113,8 +127,12 @@ void ElemHelloTriangle::LoadAssets(ID3D12Device* device)
 		// then compile the shader there
 		std::filesystem::path src = __FILE__;
 		auto shaderPath = src.parent_path() / "shaders/transform.hlsl";
+		auto modelPath = src.parent_path() / "models/TestScene/testScene.gltf";
 		auto hr = D3DCompileFromFile(shaderPath.c_str(), nullptr, nullptr, "VSMain", "vs_5_0", m_compileFlags, 0, &m_vs, nullptr);
 		hr = D3DCompileFromFile(shaderPath.c_str(), nullptr, nullptr, "PSMain", "ps_5_0", m_compileFlags, 0, &m_ps, nullptr);
+
+		// TEST: load model here
+		loadModel(modelPath.string());
 
 		D3D12_INPUT_ELEMENT_DESC inputElementDescs[] =
 		{
@@ -166,7 +184,7 @@ void ElemHelloTriangle::LoadAssets(ID3D12Device* device)
 		CD3DX12_HEAP_PROPERTIES heapUpload(D3D12_HEAP_TYPE_UPLOAD);
 
 		// create two temp resource to store the data
-		ComPtr<ID3D12Resource> gpuVertexRes;
+		//ComPtr<ID3D12Resource> gpuVertexRes;
 
 		auto bufferSize = sizeof(triangle);
 
@@ -205,27 +223,27 @@ void ElemHelloTriangle::LoadAssets(ID3D12Device* device)
 		/// we need two different heap that's because default can only access by GPU
 		/// upload can be access by CPU
 
-		// create cmd list
-		ComPtr<ID3D12GraphicsCommandList> tempCmd;
-		//auto hr = device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_COPY, m_cmdAlloc.Get(), m_pso.Get(), IID_PPV_ARGS(&tempCmd));
-		auto hr = device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_COPY, m_cmdAlloc.Get(), nullptr, IID_PPV_ARGS(&tempCmd));
-		
-		// copy the data to the gpu
-		UpdateSubresources(
-			tempCmd.Get(), // use a temp cmd list?
-			gpuVertexRes.Get(),
-			m_vertexBuffer.Get(),
-			0,
-			0,
-			1,
-			&subResData
-		);
+		//// create cmd list
+		//ComPtr<ID3D12GraphicsCommandList> tempCmd;
+		////auto hr = device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_COPY, m_cmdAlloc.Get(), m_pso.Get(), IID_PPV_ARGS(&tempCmd));
+		//auto hr = device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_COPY, m_cmdAlloc.Get(), nullptr, IID_PPV_ARGS(&tempCmd));
+		//
+		//// copy the data to the gpu
+		//UpdateSubresources(
+		//	tempCmd.Get(), // use a temp cmd list?
+		//	gpuVertexRes.Get(),
+		//	m_vertexBuffer.Get(),
+		//	0,
+		//	0,
+		//	1,
+		//	&subResData
+		//);
 
-		tempCmd->Close();
+		//tempCmd->Close();
 
-		// upload the data
-		ID3D12CommandList* list = { tempCmd.Get() };
-		m_cpQueue->ExecuteCommandLists(1, &list);
+		//// upload the data
+		//ID3D12CommandList* list = { tempCmd.Get() };
+		//m_cpQueue->ExecuteCommandLists(1, &list);
 
 		// wait for the cmd list to finish execute
 
@@ -233,8 +251,14 @@ void ElemHelloTriangle::LoadAssets(ID3D12Device* device)
 		/// map() + memcpy() doesn't require intermediate staging (the cpuVertexRes)
 		/// can directly copy the data to the upload heap
 		/// useful for small or dynamic data
+		uint8_t* pVertBegin{nullptr};
+		CD3DX12_RANGE readRange(0, 0);
+		m_vertexBuffer->Map(0, &readRange, reinterpret_cast<void**>(&pVertBegin));
+		memcpy(pVertBegin, triangle, sizeof(triangle));
+		m_vertexBuffer->Unmap(0, nullptr);
 
 		// init vertex buffer view
+		//m_vertexBufferView.BufferLocation = gpuVertexRes->GetGPUVirtualAddress();
 		m_vertexBufferView.BufferLocation = m_vertexBuffer->GetGPUVirtualAddress();
 		m_vertexBufferView.StrideInBytes = sizeof(tinyd3d::Vertex);
 		m_vertexBufferView.SizeInBytes = bufferSize;
@@ -246,5 +270,40 @@ void ElemHelloTriangle::LoadAssets(ID3D12Device* device)
 			m_copyFence->fence->SetEventOnCompletion(fence, m_fenceEvent);
 			WaitForSingleObject(m_fenceEvent, INFINITE);
 		}
+
+
+		///
+		/// TEST
+		///
+
+		// CPU staging heap
+		//ComPtr<ID3D12DescriptorHeap> meshHeap;
+		//D3D12_DESCRIPTOR_HEAP_DESC heapDesc;
+		//heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+		//heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+		//heapDesc.NumDescriptors = 100;
+		//device->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&meshHeap));
+
+		//// Should be a loop, for all mesh in the meshes
+		//int countFromAccessors = 3;
+		//int strideFromBufferView = 12;
+		//int meshId = 2;
+		//std::vector<unsigned char> tempData;
+		//auto incrementSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+		//ComPtr<ID3D12Resource> meshRes;
+
+		//D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc;
+		//srvDesc.Format = DXGI_FORMAT_UNKNOWN;
+		//srvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+		//srvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+		//srvDesc.Buffer.NumElements = countFromAccessors;
+		//srvDesc.Buffer.StructureByteStride = strideFromBufferView;
+
+		//// Use default heap and upload heap to upload the res...
+
+		//CD3DX12_CPU_DESCRIPTOR_HANDLE handle(meshHeap->GetCPUDescriptorHandleForHeapStart());
+		//handle.Offset(meshId, incrementSize);
+		//device->CreateShaderResourceView(meshRes.Get(), &srvDesc, handle);
 	}
 }

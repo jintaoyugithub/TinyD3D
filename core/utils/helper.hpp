@@ -1,7 +1,8 @@
 #pragma once
 
 #include <exception>
-#include <Windows.h>
+
+extern HRESULT;
 
 namespace tinyd3d {
 	inline void Verify(HRESULT hr) {
