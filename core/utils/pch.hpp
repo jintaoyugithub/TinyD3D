@@ -39,12 +39,6 @@ struct Vertex {
 	vec4 color;
 };
 
-//TODO: move to d3dbackend queue.hpp
-struct Queue {
-    D3D12_COMMAND_QUEUE_DESC desc{};
-    ComPtr<ID3D12CommandQueue> queue{ NULL };
-};
-
 struct Fence {
     ComPtr<ID3D12Fence> fence;
     inline static uint64_t fenceValue = 0;

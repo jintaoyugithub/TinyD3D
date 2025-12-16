@@ -4,12 +4,13 @@
 #include <stdexcept>
 #include <filesystem>
 #include <d3d12Backend/Context.hpp>
+#include <d3d12Backend/Shader.hpp>
 
 void ElemHelloResources::onAttach(tinyd3d::Application* app)
 {
 	m_device = app->getDevice();
 	auto cpyQueue = app->getQueue(1);
-	m_mainCpyQueue = cpyQueue.queue;
+	//m_mainCpyQueue = cpyQueue.queue;
 
 	///
 	/// Init
@@ -42,10 +43,6 @@ void ElemHelloResources::onAttach(tinyd3d::Application* app)
 
 	m_csuSVBaseCpuHandle = m_csuHeapShaderVisible->GetCPUDescriptorHandleForHeapStart();
 	m_csuSVBaseGpuHandle = m_csuHeapShaderVisible->GetGPUDescriptorHandleForHeapStart();
-
-	tinyd3d::FeatureInfo featureInfo{};
-	featureInfo.featureRange = D3D12_FEATURE_D3D12_OPTIONS21;
-	featureInfo.featureName = D3D12_WORK_GRAPHS_TIER_1_0;
 }
 
 void ElemHelloResources::onDetach()
@@ -471,7 +468,34 @@ void ElemHelloResources::createUAVBuffers()
 
 void ElemHelloResources::createGfxPso()
 {
-	m_device->CreateGraphicsPipelineState();
+	/// Compile the shaders
+	std::filesystem::path shaderPath = std::filesystem::current_path() / "shaders";
+	auto quadShader = shaderPath / "quad.hlsl";
+
+	auto& compiler = tinyd3d::DxcCompiler::getInstance();
+	std::vector<tinyd3d::ShaderCompileInfo> compileInfos;
+	compileInfos.emplace_back(quadShader.c_str(), tinyd3d::ShaderType::VS, std::vector<LPCWSTR>{ L"-T", L"-vs_6_8", L"-E", L"VSMain" });
+	compileInfos.emplace_back(quadShader.c_str(), tinyd3d::ShaderType::PS, std::vector<LPCWSTR>{ L"-T", L"-ps_6_8", L"-E", L"PSMain" });
+	auto shaderBytoCode = compiler.compile(compileInfos);
+	
+	// fill out the shader set
+	tinyd3d::GfxShaderSet shaderSet{};
+	D3D12_INPUT_ELEMENT_DESC inputElementDescs[] =
+	{
+		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
+	};
+	shaderSet.inputLayout = { inputElementDescs, _countof(inputElementDescs)};
+	shaderSet.VS = shaderBytoCode[tinyd3d::ShaderType::VS];
+	shaderSet.PS = shaderBytoCode[tinyd3d::ShaderType::PS];
+
+	// TODO: root signature
+
+
+
+
+	m_gfxPso.init(shaderSet, nullptr);
+	m_gfxPso.build(m_device, L"Hello resource binding gfx pso");
 }
 
 void ElemHelloResources::createCompPso()

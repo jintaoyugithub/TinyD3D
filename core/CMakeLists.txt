@@ -30,5 +30,5 @@ target_include_directories(
 target_compile_features(
     ${LIB_NAME}
     PRIVATE 
-    cxx_std_17
+    cxx_std_20
 )

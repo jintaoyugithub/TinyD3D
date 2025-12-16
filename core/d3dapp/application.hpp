@@ -8,6 +8,8 @@
 #include <wrl.h>
 #include <dxgi1_6.h>
 #include <d3dcompiler.h>
+#include <d3d12Backend/Queue.hpp>
+#include <d3d12Backend/Context.hpp>
 
 //#include <d3dx12.h>
 
@@ -47,7 +49,7 @@ struct ApplicationInfoDesc {
     ComPtr<ID3D12Device14> device{ NULL };
     ComPtr<IDXGIAdapter1> adapter{ NULL };
     //ComPtr<IDXGISwapChain3> swapChain{ NULL };
-    std::vector<Queue> queues;
+    std::vector<tinyd3d::Queue> queues;
 
     // TODO: move the config to json
     // and construct with d3dcontext class

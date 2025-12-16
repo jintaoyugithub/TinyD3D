@@ -23,29 +23,29 @@
 #include <DirectXTex.h>
 #include <filesystem>
 #include <dxcapi.h>
+#include <d3d12Backend/PipelineState.hpp>
 
 using Microsoft::WRL::ComPtr;
 
 /// TODO: move to resource.hpp
 namespace tinyd3d {
-	using namespace DirectX;
+using namespace DirectX;
 
-	struct Texture {
-		TexMetadata metadata;
-		ScratchImage rawImage;
-		const wchar_t* filePath;
+struct Texture {
+	TexMetadata metadata;
+	ScratchImage rawImage;
+	const wchar_t* filePath;
 
 
-		// constructor
-		Texture(const wchar_t* filename) {
-			filePath = filename;
+	// constructor
+	Texture(const wchar_t* filename) {
+		filePath = filename;
+	}
 
-		}
-
-		// Need to be manually call since we need to wait GPU finish 
-		// using this resource
-		void ReleaseImage() { rawImage.Release(); };
-	};
+	// Need to be manually call since we need to wait GPU finish 
+	// using this resource
+	void ReleaseImage() { rawImage.Release(); };
+};
 }
 
 class ElemHelloResources : public tinyd3d::IAppElement {
@@ -76,6 +76,8 @@ private:
 	/// Create a read write texture and a read write buffer
 	/// 
 	void createUAVBuffers();
+
+	void compileShader();
 	void createGfxPso();
 	void createCompPso();
 
@@ -140,10 +142,8 @@ private:
 	ComPtr<ID3D12GraphicsCommandList> m_cpyCmdList;
 
 	/// Pipeline state object
-	D3D12_GRAPHICS_PIPELINE_STATE_DESC m_defaultGfxPso;
-	D3D12_COMPUTE_PIPELINE_STATE_DESC m_defaultCompPso;
-	ComPtr<ID3D12PipelineState> m_defaultGfxPipeline;
-	ComPtr<ID3D12PipelineState> m_defaultCompPipeline;
+	tinyd3d::GfxPipelineState m_gfxPso;
+	tinyd3d::CompPipelineState m_compPso;
 	
 	// Compile shader with dxc instead of old fxc
 
