@@ -1,6 +1,8 @@
 #pragma once
 
 #include <d3dapp/application.hpp>
+#include <d3d12Backend/Queue.hpp>
+#include <d3d12Backend/PipelineState.hpp>
 
 using Microsoft::WRL::ComPtr;
 
@@ -31,20 +33,14 @@ private:
     // Pipeline obj
     D3D12_VIEWPORT m_viewport;
     D3D12_RECT m_scissorRect;
+    tinyd3d::GfxPipelineState m_pso;
     ComPtr<ID3D12RootSignature> m_rootSig;
-    ComPtr<ID3D12PipelineState> m_pso;
 
     // for data copy and mapping
     ComPtr<ID3D12CommandAllocator> m_cmdAlloc;
-    ComPtr<ID3D12CommandQueue> m_cpQueue;
-
-    // Sync objs
-    tinyd3d::Fence* m_copyFence;
-    HANDLE m_fenceEvent; 
+    tinyd3d::Queue m_cpyQueue;
 
     // Shaders
     ComPtr<ID3DBlob> m_vs;
     ComPtr<ID3DBlob> m_ps;
-
-    uint16_t m_compileFlags{ 0 };
 };

@@ -2,6 +2,7 @@
 #include "helloTriangle.hpp"
 #include <filesystem>
 #include <imgui.h>
+#include <d3d12Backend/Shader.hpp>
 
 // TODO: some repeatable logic should move to dx12 backend
 
@@ -23,9 +24,7 @@ void ElemHelloTriangle::onAttach(tinyd3d::Application* app)
 {
 	auto device = app->getDevice();
 	auto swapchain = app->getSwapchain();
-	m_cpQueue = app->getQueue(1).queue;
-	m_copyFence = app->getMainCopyFence().get();
-	m_fenceEvent = CreateEvent(nullptr, FALSE, FALSE, "Hello triangle copy fence event");
+	m_cpyQueue = app->getContext().getCpyQueue();
 
 	// or I get the device, app info here and pass to the functions
 	LoadPipeline(device.Get(), swapchain.Get());
@@ -34,7 +33,6 @@ void ElemHelloTriangle::onAttach(tinyd3d::Application* app)
 
 void ElemHelloTriangle::onDetach()
 {
-	CloseHandle(m_fenceEvent);
 }
 
 void ElemHelloTriangle::preRender()
@@ -55,7 +53,7 @@ void ElemHelloTriangle::preRender()
 
 void ElemHelloTriangle::onRender(ID3D12GraphicsCommandList* cmd)
 {
-	cmd->SetPipelineState(m_pso.Get());
+	cmd->SetPipelineState(m_pso.getPipelineState().Get());
 	cmd->SetGraphicsRootSignature(m_rootSig.Get());
 	// these two is a must
 	cmd->RSSetScissorRects(1, &m_scissorRect);
@@ -86,8 +84,41 @@ void ElemHelloTriangle::postRender(ID3D12GraphicsCommandList* cmd)
 
 void ElemHelloTriangle::LoadPipeline(ID3D12Device* device, IDXGISwapChain3* swapchain)
 {
-	// should be here? or in the application?
-	// create cmd allocator
+	/// Create the shader
+	std::filesystem::path src = __FILE__;
+	auto triangleShader = src.parent_path() / "shaders/transform.hlsl";
+
+	D3D12_INPUT_ELEMENT_DESC inputElementDescs[] =
+	{
+		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
+	};
+
+	auto& compiler = tinyd3d::DxcCompiler::getInstance();
+	std::vector<tinyd3d::ShaderCompileInfo> compileInfos;
+	// Dxc does not support shader modle 5.0 and below
+	compileInfos.push_back({ triangleShader.c_str(), tinyd3d::ShaderType::VS, std::vector<LPCWSTR>{ L"-T", L"vs_6_0", L"-E", L"VSMain" } });
+	compileInfos.push_back({ triangleShader.c_str(), tinyd3d::ShaderType::PS, std::vector<LPCWSTR>{ L"-T", L"ps_6_0", L"-E", L"PSMain" } });
+	auto compiledShaders = compiler.compile(compileInfos);
+
+	/// Create root signature
+	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc{};
+	rootSigDesc.Init(0, nullptr, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+	ComPtr<ID3DBlob> rootSignature;
+	ComPtr<ID3DBlob> error;
+	tinyd3d::Verify(D3D12SerializeRootSignature(&rootSigDesc, D3D_ROOT_SIGNATURE_VERSION_1, &rootSignature, &error));
+	tinyd3d::Verify(device->CreateRootSignature(0, rootSignature->GetBufferPointer(), rootSignature->GetBufferSize(), IID_PPV_ARGS(&m_rootSig)));
+
+	/// Create pipeline state object
+	tinyd3d::GfxShaderSet set{};
+	auto& vs = compiledShaders[tinyd3d::ShaderType::VS];
+	auto& ps = compiledShaders[tinyd3d::ShaderType::PS];
+	set.inputLayout = { inputElementDescs, _countof(inputElementDescs) };
+	set.VS = { vs->GetBufferPointer(), vs->GetBufferSize() };
+	set.PS = { ps->GetBufferPointer(), ps->GetBufferSize() };
+	m_pso.init(set, m_rootSig);
+	m_pso.build(device, L"Hello triangle pso");
+
 	device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_COPY, IID_PPV_ARGS(&m_cmdAlloc));
 
 	// viewport and scissor rect set up
@@ -101,68 +132,6 @@ void ElemHelloTriangle::LoadPipeline(ID3D12Device* device, IDXGISwapChain3* swap
 
 void ElemHelloTriangle::LoadAssets(ID3D12Device* device)
 {
-	{
-		// create root signature
-		// we don't need to specify anything here, so an empty root sig is enough
-		CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc{};
-		rootSigDesc.Init(0, nullptr, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
-		ComPtr<ID3DBlob> rootSignature;
-		ComPtr<ID3DBlob> error;
-
-		/// what's this for? 
-		/// this func transform root signature struct in cpu side
-		/// to some binary data which gpu can understand
-		/// because root signature is part of the shader, need to be compiled
-		D3D12SerializeRootSignature(&rootSigDesc, D3D_ROOT_SIGNATURE_VERSION_1, &rootSignature, &error);
-
-		// invalid parameter
-		//auto hr = device->CreateRootSignature(0, rootSignature.Get(), rootSignature->GetBufferSize(), IID_PPV_ARGS(&m_rootSig));
-		auto hr = device->CreateRootSignature(0, rootSignature->GetBufferPointer(), rootSignature->GetBufferSize(), IID_PPV_ARGS(&m_rootSig));
-	}
-
-	// create pipeline state, including shader compiling
-	{
-		// TODO: write getpath func in helper, add add_custom_command in cmake
-		// copy the shader files to the work dir during the build time
-		// then compile the shader there
-		std::filesystem::path src = __FILE__;
-		auto shaderPath = src.parent_path() / "shaders/transform.hlsl";
-		auto modelPath = src.parent_path() / "models/TestScene/testScene.gltf";
-		auto hr = D3DCompileFromFile(shaderPath.c_str(), nullptr, nullptr, "VSMain", "vs_5_0", m_compileFlags, 0, &m_vs, nullptr);
-		hr = D3DCompileFromFile(shaderPath.c_str(), nullptr, nullptr, "PSMain", "ps_5_0", m_compileFlags, 0, &m_ps, nullptr);
-
-		// TEST: load model here
-		loadModel(modelPath.string());
-
-		D3D12_INPUT_ELEMENT_DESC inputElementDescs[] =
-		{
-			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-			{ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
-		};
-
-
-		D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc{};
-		psoDesc.pRootSignature = m_rootSig.Get();
-		psoDesc.InputLayout = { inputElementDescs, _countof(inputElementDescs)};
-		psoDesc.DepthStencilState.DepthEnable = FALSE;
-		psoDesc.DepthStencilState.StencilEnable = FALSE;
-		psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
-		psoDesc.RasterizerState.FrontCounterClockwise = TRUE;
-		psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
-		psoDesc.NumRenderTargets = 1; // why 1?
-		psoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
-		psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-		/// what are these?
-		/// multi sample anti aliasing
-		psoDesc.SampleMask = UINT_MAX; // control which sample will be written to the RT
-		psoDesc.SampleDesc.Count = 1; // msaa level
-		// shaders
-		psoDesc.VS = { m_vs->GetBufferPointer(), m_vs->GetBufferSize() };
-		psoDesc.PS = { m_ps->GetBufferPointer(), m_ps->GetBufferSize() };
-
-		hr = device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&m_pso));
-	}
-
 	// create vertex buffer
 	{
 		// vertices data
@@ -263,14 +232,8 @@ void ElemHelloTriangle::LoadAssets(ID3D12Device* device)
 		m_vertexBufferView.StrideInBytes = sizeof(tinyd3d::Vertex);
 		m_vertexBufferView.SizeInBytes = bufferSize;
 
-		auto fence = ++m_copyFence->fenceValue;
-		m_cpQueue->Signal(m_copyFence->fence.Get(), fence);
-
-		if (m_copyFence->fence->GetCompletedValue() < fence) {
-			m_copyFence->fence->SetEventOnCompletion(fence, m_fenceEvent);
-			WaitForSingleObject(m_fenceEvent, INFINITE);
-		}
-
+		auto fenceVal = m_cpyQueue.signal();
+		m_cpyQueue.wait(fenceVal);
 
 		///
 		/// TEST

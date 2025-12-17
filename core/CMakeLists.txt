@@ -5,8 +5,9 @@ file(GLOB LIB_SRC
     ${CMAKE_CURRENT_SOURCE_DIR}/d3d12Backend/*.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/d3dapp/*.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/d3dapp/*.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/utils/*.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/utils/*.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/utils/helper.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/utils/pch.hpp
+    #${CMAKE_CURRENT_SOURCE_DIR}/utils/*.cpp
 )
 
 add_library(

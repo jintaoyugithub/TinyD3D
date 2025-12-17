@@ -9,23 +9,17 @@ void Application::init(ApplicationInfoDesc& info)
 {
     // init all the members
     m_appInfo = info;
-    m_adapter = info.adapter;
-    m_device = info.device;
-    m_queues = info.queues;
+    m_device = info.context.getDevice();
+    m_gfxQueue = info.context.getGfxQueue();
     m_renderTargets.resize(info.frameCount);
-    m_graphicsFence = std::make_shared<Fence>();
-    m_computeFence = std::make_shared<Fence>();
-    m_copyFence = std::make_shared<Fence>();
 
-    // create allocator
-    m_device->CreateCommandAllocator(m_queues[0].desc.Type, IID_PPV_ARGS(&m_cmdAlloc));
+    // TODO: create allocator, how to relate this to cmd queue
+    m_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_cmdAlloc));
 
-    // add a window element
+    // Add internal elements
     auto elemWindow = std::make_shared<ElemWindow>(info.windowConfig); // this will cause at the end of this func, elemWindow won't exist anymore
     auto elemImgui = std::make_shared<ElemImgui>();
-
     addElement(elemWindow);
-
     m_mainWindow = elemWindow->getMainWindow();
 
     // create swapchain
@@ -47,8 +41,8 @@ void Application::init(ApplicationInfoDesc& info)
 		// like m_swapchain = tinyd3d::CreateSwapchain(...);
 		ComPtr<IDXGIFactory4> factory;
 		CreateDXGIFactory1(IID_PPV_ARGS(&factory));
-		factory->CreateSwapChain(
-			m_queues[0].queue.Get(),
+        factory->CreateSwapChain(
+            m_gfxQueue.getQueue().Get(),
 			&scDesc,
 			&swapChain
 		);
@@ -83,15 +77,6 @@ void Application::init(ApplicationInfoDesc& info)
             m_device->CreateRenderTargetView(m_renderTargets[idx].Get(), nullptr, rtvHandle);
             rtvHandle.Offset(1, m_rtvDescriptorSize);
 		}
-    }
-
-    // create sync objs
-    m_device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_graphicsFence->fence));
-    m_device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_computeFence->fence));
-    m_device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_copyFence->fence));
-    m_fenceEvent = CreateEvent(nullptr, FALSE, FALSE, "render targets fence event");
-    if (!m_fenceEvent) {
-        throw std::runtime_error("Fail to create the fenceEvent");
     }
 }
 
@@ -147,17 +132,13 @@ void Application::run()
             D3D12_RESOURCE_STATE_PRESENT
         );
         tempCmd->ResourceBarrier(1, &barrier);
-
         tempCmd->Close();
 
         ID3D12CommandList* cmds = { tempCmd.Get() };
-        m_queues[0].queue->ExecuteCommandLists(1, &cmds);
-
-        // test
-        //presentFrame();
+        m_gfxQueue.executeCmdList(cmds);
         m_swapchain->Present(1, 0);
 
-        endFrame(tempCmd.Get());
+        endFrame();
     }
 
     close();
@@ -196,17 +177,10 @@ void Application::renderUI(ID3D12GraphicsCommandList* cmd)
     // render ui in backward
 }
 
-void Application::endFrame(ID3D12GraphicsCommandList* cmd)
+void Application::endFrame()
 {
-    auto curFence = ++m_graphicsFence->fenceValue;
-    m_queues[0].queue->Signal(m_graphicsFence->fence.Get(), curFence);
-
-    if (m_graphicsFence->fence->GetCompletedValue() < curFence) {
-        m_graphicsFence->fence->SetEventOnCompletion(curFence, m_fenceEvent);
-        WaitForSingleObject(m_fenceEvent, INFINITE);
-    }
-
-    // TODO: record cmd for the next frame
+    auto fenceVal = m_gfxQueue.signal();
+    m_gfxQueue.wait(fenceVal);
 }
 
 void Application::close()
@@ -220,12 +194,5 @@ void Application::close()
     // TODO: flush the cmd and wait the gpu to finish
     // otherwise will cause swapchain deconstructor fail
     // since you're still using the gpu
-}
-
-// TOOD: migrate as a helper function
-void Application::dbgEnable()
-{
-    ComPtr<ID3D12Debug> dbgController;
-    if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&dbgController)))) dbgController->EnableDebugLayer();
 }
 }

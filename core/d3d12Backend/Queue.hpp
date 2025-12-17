@@ -12,11 +12,18 @@ using Microsoft::WRL::ComPtr;
 class Queue {
 public:
 	Queue() = default;
-	Queue(ComPtr<ID3D12Device> device ,D3D12_COMMAND_QUEUE_DESC& desc);
-	~Queue() { assert(m_queue.Get() == nullptr); }
+	Queue(ComPtr<ID3D12Device> device, const D3D12_COMMAND_QUEUE_DESC& desc);
+	~Queue() { 
+		//assert(m_queue.Get() == nullptr); 
+		//CloseHandle(m_fenceEvent);
+	}
 
-	void executeCmdList(ID3D12GraphicsCommandList* list);
-	void signal();
+	void executeCmdList(ID3D12CommandList* list);
+	uint64_t signal();
+	void wait(uint64_t fenceValue);
+
+	///  Getters
+	inline ComPtr<ID3D12CommandQueue> getQueue() const { assert(m_queue.Get() != nullptr); return m_queue; };
 
 private:
 	ComPtr<ID3D12CommandQueue> m_queue;

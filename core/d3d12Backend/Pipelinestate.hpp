@@ -1,6 +1,5 @@
 #pragma once
 
-#include <directx/d3dx12.h>
 #include <d3d12.h>
 #include <wrl.h>
 #include <cassert>
@@ -16,8 +15,8 @@
 */
 
 namespace tinyd3d {
-class Shader;
 using Microsoft::WRL::ComPtr;
+class Shader;
 
 struct GfxShaderSet {
 	D3D12_INPUT_LAYOUT_DESC inputLayout;
@@ -66,7 +65,7 @@ private:
 	const wchar_t* m_name;
 	ComPtr<ID3D12PipelineState> m_gfxPso;
 	ComPtr<ID3D12RootSignature> m_rootSig;
-	D3D12_GRAPHICS_PIPELINE_STATE_DESC m_defaultDesc{};
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC m_defaultDesc;
 };
 
 class CompPipelineState {

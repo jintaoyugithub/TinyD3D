@@ -2,13 +2,13 @@
 #include <stdexcept>
 #include "../utils/helper.hpp"
 
-std::unordered_map<tinyd3d::ShaderType, D3D12_SHADER_BYTECODE> tinyd3d::DxcCompiler::compile(std::vector<ShaderCompileInfo>& compileInfos)
+std::unordered_map<tinyd3d::ShaderType, Microsoft::WRL::ComPtr<ID3DBlob>> tinyd3d::DxcCompiler::compile(std::vector<ShaderCompileInfo>& compileInfos)
 {
 
 	ComPtr<IDxcResult> result;
 	ComPtr<IDxcIncludeHandler> includeHanlder;
 	tinyd3d::Verify(m_utils->CreateDefaultIncludeHandler(&includeHanlder));
-	std::unordered_map<tinyd3d::ShaderType, D3D12_SHADER_BYTECODE> compiledShader;
+	std::unordered_map<tinyd3d::ShaderType, ComPtr<ID3DBlob>> compiledShader;
 
 	for (auto& compileInfo : compileInfos) {
 		ComPtr<ID3DBlob> code;
@@ -19,7 +19,8 @@ std::unordered_map<tinyd3d::ShaderType, D3D12_SHADER_BYTECODE> tinyd3d::DxcCompi
 		DxcBuffer shaderBuffer{};
 		shaderBuffer.Ptr = byteCode->GetBufferPointer();
 		shaderBuffer.Size = byteCode->GetBufferSize();
-		shaderBuffer.Encoding = DXC_CP_ACP;
+		//shaderBuffer.Encoding = DXC_CP_ACP;
+		shaderBuffer.Encoding = DXC_CP_UTF8;
 
 		tinyd3d::Verify(m_compiler->Compile(
 			&shaderBuffer,
@@ -33,8 +34,11 @@ std::unordered_map<tinyd3d::ShaderType, D3D12_SHADER_BYTECODE> tinyd3d::DxcCompi
 		HRESULT hr;
 		result->GetStatus(&hr);
 		if (SUCCEEDED(hr)) {
-			tinyd3d::Verify(result->GetResult((IDxcBlob**)code.GetAddressOf()));
-			compiledShader.insert({ compileInfo.type, { code->GetBufferPointer(), code->GetBufferSize() } });
+			ID3DBlob** blob = &code;
+			//tinyd3d::Verify(result->GetResult(static_cast<IDxcBlob**>(code.Get())));
+			tinyd3d::Verify(result->GetResult((IDxcBlob**)blob));
+			// blob might be release here?
+			compiledShader.insert({ compileInfo.type, code });
 			continue;
 		}
 
@@ -42,6 +46,7 @@ std::unordered_map<tinyd3d::ShaderType, D3D12_SHADER_BYTECODE> tinyd3d::DxcCompi
 		result->GetErrorBuffer(&errors);
 		auto text = errors->GetBufferPointer();
 		if (text) {
+			auto casted = reinterpret_cast<const char*>(text);
 			throw std::runtime_error(reinterpret_cast<const char*>(text));
 		}
 	}

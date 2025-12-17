@@ -20,11 +20,12 @@ enum ShaderType {
 struct ShaderCompileInfo {
 	const wchar_t* filepath;
 	ShaderType type;
-	std::vector<LPCWSTR> flags{};
+	std::vector<LPCWSTR> flags;
 };
 
 struct IShaderCompiler {
-	virtual std::unordered_map<ShaderType, D3D12_SHADER_BYTECODE> compile(std::vector<ShaderCompileInfo>& compileInfos) = 0;
+	//virtual std::unordered_map<ShaderType, D3D12_SHADER_BYTECODE> compile(std::vector<ShaderCompileInfo>& compileInfos) = 0;
+	virtual std::unordered_map<tinyd3d::ShaderType, Microsoft::WRL::ComPtr<ID3DBlob>> compile(std::vector<ShaderCompileInfo>& compileInfos) = 0;
 	virtual bool hotReaload() = 0;
 };
 
@@ -36,7 +37,7 @@ public:
 	DxcCompiler operator=(const DxcCompiler& compiler) = delete;
 
 	bool hotReaload() override;
-	std::unordered_map<ShaderType, D3D12_SHADER_BYTECODE> compile(std::vector<ShaderCompileInfo>& compileInfos) override;
+	virtual std::unordered_map<tinyd3d::ShaderType, Microsoft::WRL::ComPtr<ID3DBlob>> compile(std::vector<ShaderCompileInfo>& compileInfos) override;
 
 	inline static DxcCompiler& getInstance() { static DxcCompiler compiler; return compiler; };
 

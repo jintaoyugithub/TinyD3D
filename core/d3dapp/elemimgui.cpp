@@ -6,7 +6,7 @@ void tinyd3d::ElemImgui::onAttach(Application* app)
 {
 	m_device = app->getDevice();
 	m_swapchain = app->getSwapchain();
-	m_queue = app->getQueue(0);
+	m_queue = app->getContext().getGfxQueue();
 	m_hInstance = app->getMainWindow();
 
 	D3D12_DESCRIPTOR_HEAP_DESC desc{};
@@ -91,7 +91,7 @@ void tinyd3d::ElemImgui::initImgui() {
 	ImGui_ImplDX12_InitInfo info{};
 
 	info.Device = m_device.Get();
-	info.CommandQueue = m_queue.queue.Get();
+	info.CommandQueue = m_queue.getQueue().Get();
 	info.NumFramesInFlight = desc.BufferCount;
 	info.RTVFormat = desc.Format;
 

@@ -19,25 +19,41 @@ struct ExtensionInfo {
 	D3D12_FEATURE feature;
 	void* data;
 	uint32_t dataSize;
+	// TODO: better use a general callback, not bool required every time
 	std::function<bool(const void*)> isSupported;
 };
 
 struct ContextInfo {
 	std::vector<ExtensionInfo> features;
-	std::vector<D3D12_COMMAND_QUEUE_DESC> queueDescs;
 	D3D_FEATURE_LEVEL featureLevel;
+	std::vector<D3D12_COMMAND_QUEUE_DESC> queueDescs;
 
 #ifdef _DEBUG
 	bool bEnableDbg = true;
 #else
 	bool bEnableDbg = false;
 #endif
+
+	void addQueue(
+		D3D12_COMMAND_LIST_TYPE type, 
+		D3D12_COMMAND_QUEUE_FLAGS flag = D3D12_COMMAND_QUEUE_FLAG_NONE, 
+		UINT priority = 0, 
+		UINT nodeMask = 0) {
+
+		D3D12_COMMAND_QUEUE_DESC desc{};
+		desc.Type = type;
+		desc.Flags = flag;
+		desc.Priority = priority;
+		desc.NodeMask = nodeMask;
+		queueDescs.push_back(desc);
+	}
 };
 
 class D3DContext {
 public:
 	D3DContext() = default;
-	~D3DContext() { assert(m_device.Get() == nullptr); }
+	//~D3DContext() { assert(m_device.Get() == nullptr); }
+	~D3DContext() = default;
 
 	void Init(const ContextInfo& info);
 
