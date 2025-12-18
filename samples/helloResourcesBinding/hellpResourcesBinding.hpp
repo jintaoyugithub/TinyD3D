@@ -24,6 +24,7 @@
 #include <filesystem>
 #include <dxcapi.h>
 #include <d3d12Backend/PipelineState.hpp>
+#include <d3d12Backend/Queue.hpp>
 
 using Microsoft::WRL::ComPtr;
 
@@ -35,7 +36,6 @@ struct Texture {
 	TexMetadata metadata;
 	ScratchImage rawImage;
 	const wchar_t* filePath;
-
 
 	// constructor
 	Texture(const wchar_t* filename) {
@@ -77,7 +77,6 @@ private:
 	/// 
 	void createUAVBuffers();
 
-	void compileShader();
 	void createGfxPso();
 	void createCompPso();
 
@@ -134,19 +133,20 @@ private:
 private:
 	/// regular d3d members
 	ComPtr<ID3D12Device> m_device;
-	ComPtr<ID3D12CommandQueue> m_mainCpyQueue;
-	ComPtr<ID3D12CommandQueue> m_sedCpyQueue; // add a second copy queue
+	tinyd3d::Queue m_gfxQueue;
+	tinyd3d::Queue m_mainCpyQueue;
+	tinyd3d::Queue m_sedCpyQueue;
+
 	// could be temp but since resources are created via several funcion
 	// it's easier to make them globally accessbile
 	ComPtr<ID3D12CommandAllocator> m_cpyAlloc;
 	ComPtr<ID3D12GraphicsCommandList> m_cpyCmdList;
 
 	/// Pipeline state object
+	std::vector<tinyd3d::GfxShaderSet> m_gfxShaderSet;
 	tinyd3d::GfxPipelineState m_gfxPso;
 	tinyd3d::CompPipelineState m_compPso;
 	
-	// Compile shader with dxc instead of old fxc
-
 	/// Sync
 	ComPtr<ID3D12Fence> m_cpyFence;
 	uint64_t m_cpyFenceValue;

@@ -8,9 +8,10 @@
 
 void ElemHelloResources::onAttach(tinyd3d::Application* app)
 {
-	m_device = app->getDevice();
-	auto cpyQueue = app->getQueue(1);
-	//m_mainCpyQueue = cpyQueue.queue;
+	m_device       = app->getDevice();
+	m_gfxQueue     = app->getContext().getGfxQueue();
+	m_mainCpyQueue = app->getContext().getCpyQueue();
+	m_sedCpyQueue  = app->getContext().getCpyQueue(1);
 
 	///
 	/// Init
@@ -71,18 +72,17 @@ void ElemHelloResources::postRender(ID3D12GraphicsCommandList* cmd)
 
 void ElemHelloResources::createVertIdxBuffers()
 {
-	// TODO
-	// reset the allocator 
-
 	struct Vertex {
 		tinyd3d::vec3 pos;
 		tinyd3d::vec4 color;
 	};
 
-	D3D12_INPUT_ELEMENT_DESC vertDescp[]{
-		{"POS", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+	D3D12_INPUT_ELEMENT_DESC vertInputDesc[]{
+		{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
 		{"COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0}
 	};
+
+	m_gfxShaderSet.push_back({ vertInputDesc });
 
 	/// Vertex data
 	Vertex quad[] = {
@@ -93,18 +93,18 @@ void ElemHelloResources::createVertIdxBuffers()
 		{tinyd3d::vec3(-.5f,  .5f, .0f), tinyd3d::vec4(1.0f, 0.0f, 0.0f, 1.0f)},
 	};
 
-	D3D12_RESOURCE_DESC vertDesc{};
-	vertDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-	vertDesc.Width = sizeof(quad);
-	vertDesc.Height = 1;
-	vertDesc.Alignment = 0;
-	vertDesc.DepthOrArraySize = 1;
-	vertDesc.MipLevels = 1;
-	vertDesc.Format = DXGI_FORMAT_UNKNOWN;
-	vertDesc.SampleDesc.Count = 1;  // non-msaa
+	D3D12_RESOURCE_DESC         vertDesc { };
+	vertDesc.Dimension          = D3D12_RESOURCE_DIMENSION_BUFFER;
+	vertDesc.Width              = sizeof(quad);
+	vertDesc.Height             = 1;
+	vertDesc.Alignment          = 0;
+	vertDesc.DepthOrArraySize   = 1;
+	vertDesc.MipLevels          = 1;
+	vertDesc.Format             = DXGI_FORMAT_UNKNOWN;
+	vertDesc.SampleDesc.Count   = 1;  // non-msaa
 	vertDesc.SampleDesc.Quality = 0; 
-	vertDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR; // buffer is always row major
-	vertDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+	vertDesc.Layout             = D3D12_TEXTURE_LAYOUT_ROW_MAJOR; // buffer is always row major
+	vertDesc.Flags              = D3D12_RESOURCE_FLAG_NONE;
 
 	/// Index data
 	uint16_t quadIndices[] {
@@ -112,19 +112,19 @@ void ElemHelloResources::createVertIdxBuffers()
 		2, 3, 0,
 	};
 
-	D3D12_RESOURCE_DESC indexDesc{};
-	indexDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-	indexDesc.Width = sizeof(quadIndices);
-	indexDesc.Height = 1;
-	indexDesc.Alignment = 0;
-	indexDesc.DepthOrArraySize = 1;
-	indexDesc.MipLevels = 1;
+	D3D12_RESOURCE_DESC          indexDesc { };
+	indexDesc.Dimension          = D3D12_RESOURCE_DIMENSION_BUFFER;
+	indexDesc.Width              = sizeof(quadIndices);
+	indexDesc.Height             = 1;
+	indexDesc.Alignment          = 0;
+	indexDesc.DepthOrArraySize   = 1;
+	indexDesc.MipLevels          = 1;
 	//indexDesc.Format = DXGI_FORMAT_R16_UINT;
-	indexDesc.Format = DXGI_FORMAT_UNKNOWN; // buffer must be unknown
-	indexDesc.SampleDesc.Count = 1;  // non-msaa
+	indexDesc.Format             = DXGI_FORMAT_UNKNOWN; // buffer must be unknown
+	indexDesc.SampleDesc.Count   = 1;  // non-msaa
 	indexDesc.SampleDesc.Quality = 0;
-	indexDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR; // buffer is always row major
-	indexDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+	indexDesc.Layout             = D3D12_TEXTURE_LAYOUT_ROW_MAJOR; // buffer is always row major
+	indexDesc.Flags              = D3D12_RESOURCE_FLAG_NONE;
 
 	if (m_bUsePlacedResource) {
 		// TODO
@@ -468,33 +468,41 @@ void ElemHelloResources::createUAVBuffers()
 
 void ElemHelloResources::createGfxPso()
 {
+	using tinyd3d::ShaderType;
+
 	/// Compile the shaders
-	std::filesystem::path shaderPath = std::filesystem::current_path() / "shaders";
+	std::filesystem::path shaderPath = std::filesystem::current_path() / "shaders"; // or should I use __FILE__
 	auto quadShader = shaderPath / "quad.hlsl";
 
 	auto& compiler = tinyd3d::DxcCompiler::getInstance();
 	std::vector<tinyd3d::ShaderCompileInfo> compileInfos;
-	compileInfos.emplace_back(quadShader.c_str(), tinyd3d::ShaderType::VS, std::vector<LPCWSTR>{ L"-T", L"-vs_6_8", L"-E", L"VSMain" });
-	compileInfos.emplace_back(quadShader.c_str(), tinyd3d::ShaderType::PS, std::vector<LPCWSTR>{ L"-T", L"-ps_6_8", L"-E", L"PSMain" });
-	auto shaderBytoCode = compiler.compile(compileInfos);
-	
-	// fill out the shader set
-	tinyd3d::GfxShaderSet shaderSet{};
-	D3D12_INPUT_ELEMENT_DESC inputElementDescs[] =
-	{
-		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-		{ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
-	};
-	shaderSet.inputLayout = { inputElementDescs, _countof(inputElementDescs)};
-	shaderSet.VS = shaderBytoCode[tinyd3d::ShaderType::VS];
-	shaderSet.PS = shaderBytoCode[tinyd3d::ShaderType::PS];
+	compileInfos.push_back({ quadShader.c_str(), tinyd3d::ShaderType::VS, std::vector<LPCWSTR>{ L"-T", L"-vs_6_8", L"-E", L"VSMain" } });
+	compileInfos.push_back({ quadShader.c_str(), tinyd3d::ShaderType::PS, std::vector<LPCWSTR>{ L"-T", L"-ps_6_8", L"-E", L"PSMain" } });
+	auto codes = compiler.compile(compileInfos);
+	// Add the compiled shader to the shader set
+	m_gfxShaderSet[0].VS = { codes[ShaderType::VS]->GetBufferPointer(), codes[ShaderType::VS]->GetBufferSize() };
+	m_gfxShaderSet[0].PS = { codes[ShaderType::PS]->GetBufferPointer(), codes[ShaderType::PS]->GetBufferSize() };
 
 	// TODO: root signature
+	CD3DX12_ROOT_PARAMETER1 rootParameters[5]{};
+	//rootParameters[0].InitAsConstants();
+	//rootParameters[1].InitAsConstantBufferView();
+	//rootParameters[3].InitAsShaderResourceView();
+	//rootParameters[4].InitAsUnorderedAccessView();
+	//rootParameters[2].InitAsDescriptorTable();
+	CD3DX12_STATIC_SAMPLER_DESC staticSampler(0);
 
+	CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSigDesc{};
+	//rootSigDesc.Init_1_1();
 
+	ComPtr<ID3D12RootSignature> rootSig;
+	ComPtr<ID3DBlob> signature;
+	ComPtr<ID3DBlob> error;
+	//tinyd3d::Verify(D3DX12SerializeVersionedRootSignature());
+	//tinyd3d::Verify(m_device->CreateRootSignature());
 
-
-	m_gfxPso.init(shaderSet, nullptr);
+	// Bug? rootSig might be destory before pso creation?
+	m_gfxPso.init(m_gfxShaderSet[0], rootSig);
 	m_gfxPso.build(m_device, L"Hello resource binding gfx pso");
 }
 
