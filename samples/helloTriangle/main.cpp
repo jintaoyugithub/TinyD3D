@@ -11,7 +11,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
     ctxInfo.addQueue(D3D12_COMMAND_LIST_TYPE_DIRECT);
     ctxInfo.addQueue(D3D12_COMMAND_LIST_TYPE_COPY);
     tinyd3d::D3DContext context;
-    context.Init(ctxInfo);
+    context.init(ctxInfo);
 
     tinyd3d::ApplicationInfoDesc appConfig{};
     appConfig.context = context;

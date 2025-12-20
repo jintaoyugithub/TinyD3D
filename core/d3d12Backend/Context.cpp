@@ -6,7 +6,7 @@
 
 #define GET_NAME(Var) #Var
 
-void tinyd3d::D3DContext::Init(const ContextInfo& info)
+void tinyd3d::D3DContext::init(const ContextInfo& info)
 {
 	m_featureLevel = info.featureLevel;
 
@@ -30,7 +30,7 @@ void tinyd3d::D3DContext::createDevice(const std::vector<ExtensionInfo>& extensi
 	Verify(CreateDXGIFactory1(IID_PPV_ARGS(&factor)));
 
 	for (auto idx = 0; factor->EnumAdapters1(idx, &adapter) != DXGI_ERROR_NOT_FOUND; ++idx) {
-		Verify(D3D12CreateDevice(NULL, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&m_device)));
+		Verify(D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&m_device)));
 
 		// Check support
 		for (auto& extension : extensions) {

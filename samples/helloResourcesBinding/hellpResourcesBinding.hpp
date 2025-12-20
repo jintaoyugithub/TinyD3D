@@ -62,11 +62,9 @@ public:
 	void onResize() override;
 	void postRender(ID3D12GraphicsCommandList* cmd) override;
 
-	void createReadWriteResources();
-	void createReadOnlyResources();
-
 	inline void setUsePlacedResource(bool usePlacedResource) { m_bUsePlacedResource = usePlacedResource; };
 	inline void setUseDefaultHeap(bool useDefaultHeap) { m_bUseDefaultHeap = useDefaultHeap; };
+	inline void setUseInlineDescriptor(bool useInlineDescriptor) { m_bUseInlineDescriptor = useInlineDescriptor; };
 
 private:
 	void createVertIdxBuffers();
@@ -83,6 +81,7 @@ private:
 private:
 	bool m_bUsePlacedResource{ false };
 	bool m_bUseDefaultHeap{ false };
+	bool m_bUseInlineDescriptor{ true };
 
 	/// Raw resources
 	ComPtr<ID3D12Resource> m_vertBuffer;
@@ -92,7 +91,7 @@ private:
 	std::vector<ComPtr<ID3D12Resource>> m_testeTexturesArray;
 	// GPU generated texture and buffer
 	ComPtr<ID3D12Resource> m_randomRWTex;
-	ComPtr<ID3D12Resource> m_randomRWBuffer;
+	ComPtr<ID3D12Resource> m_gpuParticleRW;
 
 	/// Resource views
 	D3D12_VERTEX_BUFFER_VIEW m_vertBufferView;

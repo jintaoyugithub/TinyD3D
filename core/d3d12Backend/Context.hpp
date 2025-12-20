@@ -55,7 +55,7 @@ public:
 	//~D3DContext() { assert(m_device.Get() == nullptr); }
 	~D3DContext() = default;
 
-	void Init(const ContextInfo& info);
+	void init(const ContextInfo& info);
 
 	/// Getters
 	inline ComPtr<ID3D12Device> getDevice() const { return m_device; };

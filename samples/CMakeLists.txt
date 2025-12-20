@@ -3,6 +3,8 @@ function(add_sample sample_name)
 
     file(GLOB SHADERS_SRC
         ${CMAKE_CURRENT_SOURCE_DIR}/shaders/*.hlsl
+        ${CMAKE_CURRENT_SOURCE_DIR}/shaders/*.hlsli
+        ${CMAKE_CURRENT_SOURCE_DIR}/shaders/*.h
     )
 
     file(GLOB SRC
@@ -32,6 +34,7 @@ function(add_sample sample_name)
         PRIVATE
         # specify the file you want to use in dirextx-heads
         # since it will replace the one in the Windows SDK
+        ${CMAKE_CURRENT_SOURCE_DIR}/shaders/
         ${CMAKE_SOURCE_DIR}/thirdparty/directx-headers/include/
         ${CMAKE_SOURCE_DIR}/core/
         ${CMAKE_SOURCE_DIR}/thirdparty/imgui

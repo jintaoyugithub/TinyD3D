@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <d3d12Backend/Context.hpp>
 #include <d3d12Backend/Shader.hpp>
+#include <shaderio.h>
 
 void ElemHelloResources::onAttach(tinyd3d::Application* app)
 {
@@ -44,6 +45,19 @@ void ElemHelloResources::onAttach(tinyd3d::Application* app)
 
 	m_csuSVBaseCpuHandle = m_csuHeapShaderVisible->GetCPUDescriptorHandleForHeapStart();
 	m_csuSVBaseGpuHandle = m_csuHeapShaderVisible->GetGPUDescriptorHandleForHeapStart();
+
+	setUseDefaultHeap(true);
+
+	/// Upload required resources
+	auto workDir = std::filesystem::path(__FILE__).parent_path();
+	auto checkboardTexPath = workDir / "res/checkboard.png";
+	createVertIdxBuffers();
+	createConstantBuffers();
+	createTextures({checkboardTexPath.c_str()});
+	createUAVBuffers();
+
+	/// Comiple shader and crate pso
+	createGfxPso();
 }
 
 void ElemHelloResources::onDetach()
@@ -76,13 +90,6 @@ void ElemHelloResources::createVertIdxBuffers()
 		tinyd3d::vec3 pos;
 		tinyd3d::vec4 color;
 	};
-
-	D3D12_INPUT_ELEMENT_DESC vertInputDesc[]{
-		{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
-		{"COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0}
-	};
-
-	m_gfxShaderSet.push_back({ vertInputDesc });
 
 	/// Vertex data
 	Vertex quad[] = {
@@ -186,13 +193,13 @@ void ElemHelloResources::createVertIdxBuffers()
 			);
 
 			// Transit resource state after update
-			auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(
-				m_vertBuffer.Get(),
-				D3D12_RESOURCE_STATE_COPY_DEST,
-				D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER
-			);
+			//auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+			//	m_vertBuffer.Get(),
+			//	D3D12_RESOURCE_STATE_COMMON,
+			//	D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER
+			//);
 
-			m_cpyCmdList->ResourceBarrier(1, &barrier);
+			//m_cpyCmdList->ResourceBarrier(1, &barrier);
 
 			D3D12_SUBRESOURCE_DATA indexData{};
 			indexData.pData = quadIndices;
@@ -209,13 +216,13 @@ void ElemHelloResources::createVertIdxBuffers()
 				&vertData
 			);
 
-			barrier = CD3DX12_RESOURCE_BARRIER::Transition(
-				m_indexBuffer.Get(),
-				D3D12_RESOURCE_STATE_COPY_DEST,
-				D3D12_RESOURCE_STATE_INDEX_BUFFER
-			);
+			//barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+			//	m_indexBuffer.Get(),
+			//	D3D12_RESOURCE_STATE_COMMON,
+			//	D3D12_RESOURCE_STATE_INDEX_BUFFER
+			//);
 
-			m_cpyCmdList->ResourceBarrier(1, &barrier);
+			//m_cpyCmdList->ResourceBarrier(1, &barrier);
 
 			// batch the upload together?
 			// execute the cmd list here
@@ -246,10 +253,6 @@ void ElemHelloResources::createVertIdxBuffers()
 
 void ElemHelloResources::createConstantBuffers()
 {
-	struct LightConstants {
-		tinyd3d::vec4 color;
-	};
-
 	LightConstants lights[] = {
 		{tinyd3d::vec4(1.0, 1.0, 1.0, 1.0)}, // white
 		{tinyd3d::vec4(1.0, 0.8, 0.5, 1.0)}, // light yellow
@@ -287,20 +290,17 @@ void ElemHelloResources::createConstantBuffers()
 
 void ElemHelloResources::createTextures(std::vector<const wchar_t*> filenames)
 {
-	auto resPath = std::filesystem::current_path() / "res";
 	auto numTexs = filenames.size();
 
 	for (const auto& file : filenames) {
-		auto texFullPath = resPath / file;
-
-		if (!std::filesystem::exists(texFullPath)) {
+		if (!std::filesystem::exists(file)) {
 			throw std::runtime_error("Texture file does not exist!");
 		}
 
 		// Load texture via DirectXTex
 		using namespace DirectX; 
 		ScratchImage image;
-		auto hr = DirectX::LoadFromWICFile(texFullPath.c_str(), WIC_FLAGS_NONE, nullptr, image);
+		auto hr = DirectX::LoadFromWICFile(file, WIC_FLAGS_NONE, nullptr, image);
 		if (FAILED(hr)) {
 			throw std::runtime_error("Fail to load image");
 		}
@@ -337,17 +337,6 @@ void ElemHelloResources::createTextures(std::vector<const wchar_t*> filenames)
 			break;
 		}
 
-		// Texture must be upload to default heap
-		ComPtr<ID3D12Resource> texCpuTempHandle;
-		tinyd3d::Verify(m_device->CreateCommittedResource(
-			&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
-			D3D12_HEAP_FLAG_NONE,
-			&texDesc,
-			D3D12_RESOURCE_STATE_COPY_SOURCE,
-			nullptr,
-			IID_PPV_ARGS(&texCpuTempHandle)
-		));
-
 		tinyd3d::Verify(m_device->CreateCommittedResource(
 			&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
 			D3D12_HEAP_FLAG_NONE,
@@ -355,6 +344,20 @@ void ElemHelloResources::createTextures(std::vector<const wchar_t*> filenames)
 			D3D12_RESOURCE_STATE_COPY_DEST,
 			nullptr,
 			IID_PPV_ARGS(&m_checkboardTex)
+		));
+
+		// texture must be upload to default heap
+		// but texture can not be created on upload heap
+		// so we need to use buffer to upload the texture
+		const uint64_t uploadBufferSize = GetRequiredIntermediateSize(m_checkboardTex.Get(), 0, 1);
+		ComPtr<ID3D12Resource> texCpuTempHandle;
+		tinyd3d::Verify(m_device->CreateCommittedResource(
+			&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+			D3D12_HEAP_FLAG_NONE,
+			&CD3DX12_RESOURCE_DESC::Buffer(uploadBufferSize),
+			D3D12_RESOURCE_STATE_COPY_SOURCE,
+			nullptr,
+			IID_PPV_ARGS(&texCpuTempHandle)
 		));
 
 		// subresource data amount should align with texture count like mip map or what
@@ -377,16 +380,6 @@ void ElemHelloResources::createTextures(std::vector<const wchar_t*> filenames)
 			imageSubData.data()
 		);
 
-		// Add a barrier
-		auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(
-			m_checkboardTex.Get(),
-			D3D12_RESOURCE_STATE_COPY_DEST,
-			//D3D12_RESOURCE_STATE_GENERIC_READ
-			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE
-		);
-
-		m_cpyCmdList->ResourceBarrier(1, &barrier);
-
 		// Create a descriptor
 		auto resDesc = texCpuTempHandle->GetDesc();
 		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{};
@@ -394,6 +387,8 @@ void ElemHelloResources::createTextures(std::vector<const wchar_t*> filenames)
 		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 		// TODO: move this to the switch case so that we can have a little bit more flixibility
 		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+		// This is necessary otherwise error: CREATESHADERRESOURCEVIEW_INVALIDDIMENSIONS
+		srvDesc.Texture2D.MipLevels = resDesc.MipLevels;
 
 		// TODO: Better check if the size of the current descriptor heap is big enough 
 		
@@ -409,13 +404,6 @@ void ElemHelloResources::createTextures(std::vector<const wchar_t*> filenames)
 
 void ElemHelloResources::createUAVBuffers()
 {
-	// Test particle structure
-	struct GPUParticle {
-		// actual data is randomly generated by the gpu
-		tinyd3d::vec4 pos; 
-		uint16_t state;
-	};
-
 	constexpr uint64_t texWidth = 500;
 	constexpr uint64_t texHeight = 500;
 	constexpr uint32_t particleCount = 10000;
@@ -425,10 +413,11 @@ void ElemHelloResources::createUAVBuffers()
 	tinyd3d::Verify(m_device->CreateCommittedResource(
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
 		D3D12_HEAP_FLAG_NONE,
-		&CD3DX12_RESOURCE_DESC::Buffer(bufferSize),
+		// UAV require resources flag allow unordered access
+		&CD3DX12_RESOURCE_DESC::Buffer(bufferSize, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS),
 		D3D12_RESOURCE_STATE_COMMON, // might not be common
 		nullptr,
-		IID_PPV_ARGS(&m_randomRWBuffer)
+		IID_PPV_ARGS(&m_gpuParticleRW)
 	));
 
 	tinyd3d::Verify(m_device->CreateCommittedResource(
@@ -447,6 +436,7 @@ void ElemHelloResources::createUAVBuffers()
 	D3D12_UNORDERED_ACCESS_VIEW_DESC uavTexDesc{};
 	D3D12_UNORDERED_ACCESS_VIEW_DESC uavBufferDesc{};
 
+	// The format of the buffer has to be unknown
 	uavBufferDesc.Format = DXGI_FORMAT_UNKNOWN;
 	uavBufferDesc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
 	uavBufferDesc.Buffer.FirstElement = 0;
@@ -458,12 +448,12 @@ void ElemHelloResources::createUAVBuffers()
 	// Add and update descriptor heap
 	D3D12_CPU_DESCRIPTOR_HANDLE curHandle{};
 	curHandle.ptr = m_csuBaseCpuHandle.ptr + (m_csuCpuHandleOffset * m_csuHeapIncrementSize);
-	m_device->CreateUnorderedAccessView(m_randomRWBuffer.Get(), nullptr, &uavBufferDesc, curHandle);
+	m_device->CreateUnorderedAccessView(m_gpuParticleRW.Get(), nullptr, &uavBufferDesc, curHandle);
 	m_csuCpuHandleOffset++;
 
-	curHandle.ptr = m_csuBaseCpuHandle.ptr + (m_csuCpuHandleOffset * m_csuHeapIncrementSize);
-	m_device->CreateUnorderedAccessView(m_randomRWTex.Get(), nullptr, &uavTexDesc, curHandle);
-	m_csuCpuHandleOffset++;
+	//curHandle.ptr = m_csuBaseCpuHandle.ptr + (m_csuCpuHandleOffset * m_csuHeapIncrementSize);
+	//m_device->CreateUnorderedAccessView(m_randomRWTex.Get(), nullptr, &uavTexDesc, curHandle);
+	//m_csuCpuHandleOffset++;
 }
 
 void ElemHelloResources::createGfxPso()
@@ -471,35 +461,89 @@ void ElemHelloResources::createGfxPso()
 	using tinyd3d::ShaderType;
 
 	/// Compile the shaders
-	std::filesystem::path shaderPath = std::filesystem::current_path() / "shaders"; // or should I use __FILE__
-	auto quadShader = shaderPath / "quad.hlsl";
+	std::filesystem::path curPath = __FILE__;
+	auto includeDir = curPath.parent_path() / "shaders";
+	auto quadShader = includeDir / "quad.hlsl";
 
 	auto& compiler = tinyd3d::DxcCompiler::getInstance();
 	std::vector<tinyd3d::ShaderCompileInfo> compileInfos;
-	compileInfos.push_back({ quadShader.c_str(), tinyd3d::ShaderType::VS, std::vector<LPCWSTR>{ L"-T", L"-vs_6_8", L"-E", L"VSMain" } });
-	compileInfos.push_back({ quadShader.c_str(), tinyd3d::ShaderType::PS, std::vector<LPCWSTR>{ L"-T", L"-ps_6_8", L"-E", L"PSMain" } });
+	compileInfos.push_back({ 
+		quadShader.c_str(), 
+		tinyd3d::ShaderType::VS, 
+		std::vector<LPCWSTR>{ 
+		L"-T", L"vs_6_0", 
+		L"-E", L"VSMain",
+		L"-I", includeDir.c_str()
+		} 
+	});
+	compileInfos.push_back({ 
+		quadShader.c_str(), 
+		tinyd3d::ShaderType::PS, 
+		std::vector<LPCWSTR>{ 
+		L"-T", L"ps_6_0", 
+		L"-E", L"PSMain",
+		L"-I", includeDir.c_str()
+		} 
+	});
 	auto codes = compiler.compile(compileInfos);
 	// Add the compiled shader to the shader set
+	m_gfxShaderSet.resize(1);
+	D3D12_INPUT_ELEMENT_DESC vertInputDesc[]{
+		{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+		{"COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0}
+	};
+	m_gfxShaderSet[0].inputLayout = { vertInputDesc, _countof(vertInputDesc) };
 	m_gfxShaderSet[0].VS = { codes[ShaderType::VS]->GetBufferPointer(), codes[ShaderType::VS]->GetBufferSize() };
 	m_gfxShaderSet[0].PS = { codes[ShaderType::PS]->GetBufferPointer(), codes[ShaderType::PS]->GetBufferSize() };
 
-	// TODO: root signature
+	/// Create root signature
+	/*
+	* Used resources:
+	* 1. one CBV buffer: light constants
+	* 2. one SRV texture: check borad texture
+	* 3. one UAV buffer: gpu particle
+	* 4. one inline root signature constants: draw constants
+	* 5. one UAV texture: random rw texture
+	*/
+	uint32_t numParameters;
 	CD3DX12_ROOT_PARAMETER1 rootParameters[5]{};
-	//rootParameters[0].InitAsConstants();
-	//rootParameters[1].InitAsConstantBufferView();
-	//rootParameters[3].InitAsShaderResourceView();
-	//rootParameters[4].InitAsUnorderedAccessView();
-	//rootParameters[2].InitAsDescriptorTable();
+
+	if (m_bUseInlineDescriptor) {
+		numParameters = 5;
+		rootParameters[0].InitAsConstants(2, 0);
+		rootParameters[1].InitAsConstantBufferView(1);
+		rootParameters[2].InitAsShaderResourceView(0);
+		rootParameters[3].InitAsUnorderedAccessView(0);
+		rootParameters[4].InitAsUnorderedAccessView(1);
+	}
+	else {
+		// keep the inline constants and move every thing else to a shader visible heap
+		numParameters = 2;
+		CD3DX12_DESCRIPTOR_RANGE1 ranges[3]{};
+		ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0);
+		ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0);
+		ranges[2].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 2, 0);
+		rootParameters[0].InitAsConstants(2, 0);
+		rootParameters[1].InitAsDescriptorTable(_countof(ranges), &ranges[0]);
+
+		/// Copy the required descriptor into shader visible heap
+		m_device->CopyDescriptorsSimple(4, m_csuSVBaseCpuHandle, m_csuBaseCpuHandle, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	}
+	// Static sampler
 	CD3DX12_STATIC_SAMPLER_DESC staticSampler(0);
 
 	CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSigDesc{};
-	//rootSigDesc.Init_1_1();
-
+	// why have to add this flag?
+	rootSigDesc.Init_1_1(numParameters, rootParameters, 1, &staticSampler, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 	ComPtr<ID3D12RootSignature> rootSig;
 	ComPtr<ID3DBlob> signature;
 	ComPtr<ID3DBlob> error;
-	//tinyd3d::Verify(D3DX12SerializeVersionedRootSignature());
-	//tinyd3d::Verify(m_device->CreateRootSignature());
+	// BlobLengthInBytes parameter indicates size of 8 
+	// but this does not match pBlobWithRootSignature parameter which points to a blob whose internal size encoding is 659763088. 
+	// If ID3DBlob was used to hold the blob, GetBufferPointer() returns the blob pointer and GetBufferSize() returns the size.
+	tinyd3d::Verify(D3DX12SerializeVersionedRootSignature(&rootSigDesc, D3D_ROOT_SIGNATURE_VERSION_1_1, &signature, &error));
+	//tinyd3d::Verify(m_device->CreateRootSignature(0, signature.Get(), sizeof(signature), IID_PPV_ARGS(&rootSig)));
+	tinyd3d::Verify(m_device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&rootSig)));
 
 	// Bug? rootSig might be destory before pso creation?
 	m_gfxPso.init(m_gfxShaderSet[0], rootSig);

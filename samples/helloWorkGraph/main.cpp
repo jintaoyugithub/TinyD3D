@@ -34,10 +34,20 @@ int wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, PWSTR pCmdLine, int nC
 	ctxConfig.features.emplace_back(
 		D3D12_FEATURE_D3D12_OPTIONS21,
 		&options21,
-		sizeof(D3D12_FEATURE_DATA_D3D12_OPTIONS21),
+		sizeof(options21),
 		[](const void* data) {
 			auto* opt = static_cast<const D3D12_FEATURE_DATA_D3D12_OPTIONS21*>(data);
 			return opt->WorkGraphsTier != D3D12_WORK_GRAPHS_TIER_NOT_SUPPORTED;
+		}
+	);
+	D3D12_FEATURE_DATA_ROOT_SIGNATURE rootSigData{};
+	ctxConfig.features.emplace_back(
+		D3D12_FEATURE_ROOT_SIGNATURE,
+		&rootSigData,
+		sizeof(rootSigData),
+		[](const void* data) {
+			auto* opt = static_cast<const D3D12_FEATURE_DATA_ROOT_SIGNATURE*>(data);
+			return opt->HighestVersion != D3D_ROOT_SIGNATURE_VERSION_1_1;
 		}
 	);
 	// Add a gfx queue
@@ -52,9 +62,10 @@ int wWinMain(HINSTANCE hInstance, HINSTANCE prevInstance, PWSTR pCmdLine, int nC
 	);
 
 	tinyd3d::D3DContext context;
-	context.Init(ctxConfig);
+	context.init(ctxConfig);
 
 	tinyd3d::ApplicationInfoDesc appInfo{};
+	appInfo.context = context;
 	appInfo.windowConfig.title = "Hello Work Graph";
 	appInfo.windowConfig.windowInstance = hInstance;
 	appInfo.windowConfig.nCmdShow = nCmdShow;

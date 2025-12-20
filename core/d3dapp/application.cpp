@@ -34,7 +34,7 @@ void Application::init(ApplicationInfoDesc& info)
 		scDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD; // ???
 		// should be created after the window is created
 		scDesc.OutputWindow = m_mainWindow;
-		scDesc.SampleDesc.Count = 1; // ???
+		scDesc.SampleDesc.Count = 1; // MSAA
 		scDesc.Windowed = !m_appInfo.windowConfig.fullScreen;
 
 		// TODO: move this logic to dx12 backend
